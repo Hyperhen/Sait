@@ -211,8 +211,8 @@ footer {
 .news-form {
     max-width: 600px;
     margin: 0 auto;
+}
 
-    
 /* Questions Section */
 .questions {
     background: rgba(27, 27, 46, 0.8);
@@ -291,5 +291,3 @@ footer {
 .submit-btn:active {
     transform: translateY(0);
 }
-
-
