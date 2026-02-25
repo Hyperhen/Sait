@@ -156,7 +156,7 @@ footer {
 
 .social-buttons {
     display: flex;
-    gap: 15px;
+    gap: 40px;
     justify-content: center;
     margin-top: 15px;
     flex-wrap: wrap;
@@ -192,4 +192,83 @@ footer {
 .tiktok-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 16px rgba(37, 244, 238, 0.3);
+}
+
+/* Questions Section */
+.questions {
+    background: rgba(27, 27, 46, 0.8);
+    border-top: 3px solid #e43f5a;
+    border-bottom: 3px solid #e43f5a;
+    padding: 40px 20px;
+    margin: 40px 0;
+}
+
+.questions h2 {
+    color: #e43f5a;
+    margin-bottom: 30px;
+}
+
+.question-form {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.form-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #fff;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e43f5a;
+    border-radius: 6px;
+    background: #0f0f1e;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #ff6b7a;
+    box-shadow: 0 0 8px rgba(228, 63, 90, 0.5);
+}
+
+.form-group textarea {
+    resize: vertical;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #e43f5a, #c91e47);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(228, 63, 90, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
 }
