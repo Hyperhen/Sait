@@ -67,21 +67,13 @@
     <div class="content-display">
         <div class="display-section news-display">
             <h2>📰 Всі новини</h2>
-            <div class="display-grid">
-                <div class="content-item">
-                    <h3>Новина 1</h3>
-                    <p>Текст новини буде тут...</p>
-                </div>
+            <div class="display-grid" id="news-display-grid">
             </div>
         </div>
 
         <div class="display-section questions-display">
             <h2>❓ Всі запитання</h2>
-            <div class="display-grid">
-                <div class="content-item">
-                    <p><strong>Ім'я:</strong> Користувач</p>
-                    <p><strong>Запитання:</strong> Текст запитання буде тут...</p>
-                </div>
+            <div class="display-grid" id="questions-display-grid">
             </div>
         </div>
     </div>
@@ -100,6 +92,92 @@
 <footer>
     <p>© 2026 Волейбольний клуб Люті. Всі права захищені.</p>
 </footer>
+
+<script>
+// Ініціалізація даних з localStorage
+let newsData = JSON.parse(localStorage.getItem('newsData')) || [];
+let questionsData = JSON.parse(localStorage.getItem('questionsData')) || [];
+
+// Функція для відображення всіх новин
+function displayNews() {
+    const newsGrid = document.getElementById('news-display-grid');
+    newsGrid.innerHTML = '';
+    
+    if (newsData.length === 0) {
+        newsGrid.innerHTML = '<div class="content-item"><p style="color: #999;">Новин немає</p></div>';
+        return;
+    }
+    
+    newsData.forEach(news => {
+        const newsItem = document.createElement('div');
+        newsItem.className = 'content-item';
+        newsItem.innerHTML = `
+            <h3>${news.title}</h3>
+            <p>${news.content}</p>
+        `;
+        newsGrid.appendChild(newsItem);
+    });
+}
+
+// Функція для відображення всіх запитань
+function displayQuestions() {
+    const questionsGrid = document.getElementById('questions-display-grid');
+    questionsGrid.innerHTML = '';
+    
+    if (questionsData.length === 0) {
+        questionsGrid.innerHTML = '<div class="content-item"><p style="color: #999;">Запитань немає</p></div>';
+        return;
+    }
+    
+    questionsData.forEach(question => {
+        const questionItem = document.createElement('div');
+        questionItem.className = 'content-item';
+        questionItem.innerHTML = `
+            <p><strong>Ім'я:</strong> ${question.name}</p>
+            <p><strong>Email:</strong> ${question.email}</p>
+            <p><strong>Запитання:</strong> ${question.text}</p>
+        `;
+        questionsGrid.appendChild(questionItem);
+    });
+}
+
+// Обработка форми новин
+document.querySelector('.news-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const title = document.getElementById('news-title').value;
+    const content = document.getElementById('news-content').value;
+    
+    if (title && content) {
+        newsData.unshift({ title, content, date: new Date().toLocaleString('uk-UA') });
+        localStorage.setItem('newsData', JSON.stringify(newsData));
+        
+        displayNews();
+        this.reset();
+    }
+});
+
+// Обработка форми запитань
+document.querySelector('.question-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email').value;
+    const text = document.getElementById('question').value;
+    
+    if (name && email && text) {
+        questionsData.unshift({ name, email, text, date: new Date().toLocaleString('uk-UA') });
+        localStorage.setItem('questionsData', JSON.stringify(questionsData));
+        
+        displayQuestions();
+        this.reset();
+    }
+});
+
+// Ініціалізація дисплею при завантаженні сторінки
+displayNews();
+displayQuestions();
+</script>
 
 </body>
 </html>
