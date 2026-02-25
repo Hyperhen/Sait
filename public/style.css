@@ -194,7 +194,6 @@ footer {
     box-shadow: 0 8px 16px rgba(37, 244, 238, 0.3);
 }
 
-
 /* Forms Container */
 .forms-container {
     display: flex;
@@ -299,4 +298,122 @@ footer {
     font-weight: bold;
     cursor: pointer;
     transition: all 0.3s ease;
+}
+
+.submit-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(228, 63, 90, 0.4);
+}
+
+.submit-btn:active {
+    transform: translateY(0);
+}
+
+/* All Content Display Section */
+.all-content {
+    margin: 40px auto;
+    max-width: 1200px;
+    padding: 0 20px;
+}
+
+.content-display {
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+}
+
+.display-section {
+    flex: 1;
+    background: rgba(27, 27, 46, 0.8);
+    padding: 25px;
+    border-radius: 8px;
+    border-left: 4px solid;
+    max-height: 500px;
+    overflow-y: auto;
+}
+
+.news-display {
+    border-left-color: #00d4ff;
+}
+
+.news-display h2 {
+    color: #00d4ff;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.questions-display {
+    border-left-color: #e43f5a;
+}
+
+.questions-display h2 {
+    color: #e43f5a;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.display-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.content-item {
+    background: rgba(15, 15, 30, 0.6);
+    padding: 15px;
+    border-radius: 4px;
+    border-left: 3px solid #666;
+}
+
+.news-display .content-item {
+    border-left-color: #00d4ff;
+}
+
+.news-display .content-item h3 {
+    margin: 0 0 10px 0;
+    color: #00d4ff;
+    font-size: 14px;
+}
+
+.news-display .content-item p {
+    margin: 5px 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #ccc;
+}
+
+.questions-display .content-item {
+    border-left-color: #e43f5a;
+}
+
+.questions-display .content-item p {
+    margin: 5px 0;
+    font-size: 13px;
+    line-height: 1.4;
+    color: #ccc;
+}
+
+.questions-display .content-item strong {
+    color: #e43f5a;
+}
+
+/* Scrollbar styling */
+.display-section::-webkit-scrollbar {
+    width: 6px;
+}
+
+.display-section::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.display-section::-webkit-scrollbar-thumb {
+    background: rgba(228, 63, 90, 0.5);
+    border-radius: 3px;
+}
+
+.display-section::-webkit-scrollbar-thumb:hover {
+    background: rgba(228, 63, 90, 0.7);
 }
