@@ -26,40 +26,41 @@
             </div>
         </div>
 
-<section class="news">
-    <h2>📰 Новини з тренувань</h2>
-    <form class="news-form">
-        <div class="form-group">
-            <label for="news-title">Заголовок новини:</label>
-            <input type="text" id="news-title" name="news-title" placeholder="Введіть заголовок" required>
-        </div>
-        <div class="form-group">
-            <label for="news-content">Текст новини:</label>
-            <textarea id="news-content" name="news-content" rows="6" placeholder="Напишіть новину з тренування..." required></textarea>
-        </div>
-        <button type="submit" class="submit-btn">Опублікувати новину</button>
-    </form>
-</section>
+<div class="forms-container">
+    <section class="form-section news">
+        <h2>📰 Новини</h2>
+        <form class="news-form">
+            <div class="form-group">
+                <label for="news-title">Заголовок:</label>
+                <input type="text" id="news-title" name="news-title" placeholder="Заголовок" required>
+            </div>
+            <div class="form-group">
+                <label for="news-content">Текст:</label>
+                <textarea id="news-content" name="news-content" rows="4" placeholder="Новина з тренування..." required></textarea>
+            </div>
+            <button type="submit" class="submit-btn">Опублікувати</button>
+        </form>
+    </section>
 
-<section class="questions">
-    <h2>❓ Задайте своє запитання</h2>
-    <form class="question-form">
-        <div class="form-group">
-            <label for="name">Ім'я:</label>
-            <input type="text" id="name" name="name" required>
-        </div>
-        <div class="form-group">
-            <label for="email">Email:</label>
-            <input type="email" id="email" name="email" required>
-        </div>
-        <div class="form-group">
-            <label for="question">Ваше запитання:</label>
-            <textarea id="question" name="question" rows="5" required></textarea>
-        </div>
-        <button type="submit" class="submit-btn">Відправити запитання</button>
-    </form>
-</section>
-
+    <section class="form-section questions">
+        <h2>❓ Запитання</h2>
+        <form class="question-form">
+            <div class="form-group">
+                <label for="name">Ім'я:</label>
+                <input type="text" id="name" name="name" required>
+            </div>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="question">Запитання:</label>
+                <textarea id="question" name="question" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="submit-btn">Відправити</button>
+        </form>
+    </section>
+</div>
 <section class="schedule">
     <h2>Розклад тренувань</h2>
     <table>
@@ -76,4 +77,5 @@
 
 </body>
 </html>
+
 
