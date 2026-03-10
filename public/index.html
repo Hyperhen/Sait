@@ -61,6 +61,25 @@
             <button type="submit" class="submit-btn">Опублікувати</button>
         </form>
     </section>
+
+    <section class="form-section birthdays">
+        <h2>🎂 Дні народження (тільки для адміністратора)</h2>
+        <form id="birthdays-form">
+            <div class="form-group">
+                <label for="birthdays-password">Пароль:</label>
+                <input type="password" id="birthdays-password" required>
+            </div>
+            <div class="form-group">
+                <label for="birthday-name">Ім'я:</label>
+                <input type="text" id="birthday-name" required>
+            </div>
+            <div class="form-group">
+                <label for="birthday-date">Дата народження:</label>
+                <input type="date" id="birthday-date" required>
+            </div>
+            <button type="submit" class="submit-btn">Додати день народження</button>
+        </form>
+    </section>
 </div>
 
 <section class="all-content">
@@ -68,6 +87,18 @@
         <div class="display-section club-news-display">
             <h2>📰 Всі новини клубу</h2>
             <div class="display-grid" id="club-news-display-grid"></div>
+        </div>
+        <div class="display-section birthdays-display">
+            <h2>🎂 Дні народження</h2>
+            <div class="carousel-container">
+                <div class="carousel" id="birthdays-carousel">
+                    <div class="carousel-item">
+                        <p style="color: #999;">Днів народження немає</p>
+                    </div>
+                </div>
+                <button class="carousel-btn carousel-prev" id="carousel-prev">❮</button>
+                <button class="carousel-btn carousel-next" id="carousel-next">❯</button>
+            </div>
         </div>
     </div>
 </section>
@@ -87,10 +118,14 @@
 </footer>
 
 <script>
-// localStorage data for registration and club news
+// localStorage data for registration, club news, and birthdays
 let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
 let clubNewsData = JSON.parse(localStorage.getItem('clubNewsData')) || [];
+let birthdaysData = JSON.parse(localStorage.getItem('birthdaysData')) || [];
 const ADMIN_PASSWORD = 'admin123'; // змініть на власний секретний пароль
+
+let currentBirthdayIndex = 0;
+let birthdayAutoRotate = null;
 
 // Показати новини клубу
 function displayClubNews() {
@@ -110,6 +145,78 @@ function displayClubNews() {
         `;
         newsGrid.appendChild(newsItem);
     });
+}
+
+// Показати дні народження в каруселі
+function displayBirthdays() {
+    const carousel = document.getElementById('birthdays-carousel');
+    carousel.innerHTML = '';
+    
+    if (birthdaysData.length === 0) {
+        carousel.innerHTML = '<div class="carousel-item"><p style="color: #999;">Днів народження немає</p></div>';
+        currentBirthdayIndex = 0;
+        return;
+    }
+    
+    birthdaysData.forEach((birthday, index) => {
+        const item = document.createElement('div');
+        item.className = 'carousel-item';
+        const dateObj = new Date(birthday.date);
+        const formattedDate = dateObj.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+        item.innerHTML = `
+            <h3>${birthday.name}</h3>
+            <p>${formattedDate}</p>
+        `;
+        carousel.appendChild(item);
+    });
+    
+    // Встановити поточний індекс та оновити позицію
+    if (currentBirthdayIndex >= birthdaysData.length) {
+        currentBirthdayIndex = 0;
+    }
+    updateCarouselPosition();
+    startBirthdayAutoRotate();
+}
+
+// Оновити позицію карусели
+function updateCarouselPosition() {
+    const carousel = document.getElementById('birthdays-carousel');
+    const items = carousel.querySelectorAll('.carousel-item');
+    
+    items.forEach((item, index) => {
+        item.classList.remove('active');
+        if (index === currentBirthdayIndex) {
+            item.classList.add('active');
+        }
+    });
+}
+
+// Переміщення по каруселі
+function moveBirthdayCarousel(direction) {
+    clearInterval(birthdayAutoRotate);
+    const items = document.querySelectorAll('#birthdays-carousel .carousel-item');
+    
+    if (items.length === 0) return;
+    
+    if (direction === 'next') {
+        currentBirthdayIndex = (currentBirthdayIndex + 1) % items.length;
+    } else if (direction === 'prev') {
+        currentBirthdayIndex = (currentBirthdayIndex - 1 + items.length) % items.length;
+    }
+    
+    updateCarouselPosition();
+    startBirthdayAutoRotate();
+}
+
+// Автоматичне обертання карусели
+function startBirthdayAutoRotate() {
+    const items = document.querySelectorAll('#birthdays-carousel .carousel-item');
+    if (items.length <= 1) return;
+    
+    birthdayAutoRotate = setInterval(() => {
+        currentBirthdayIndex = (currentBirthdayIndex + 1) % items.length;
+        updateCarouselPosition();
+    }, 5000); // Змінити кожні 5 секунд
 }
 
 // Реєстрація користувача
@@ -145,8 +252,36 @@ clubNewsForm.addEventListener('submit', function(e) {
     }
 });
 
+// Додання днів народження (тільки адміністратор)
+const birthdaysForm = document.getElementById('birthdays-form');
+birthdaysForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const pwd = document.getElementById('birthdays-password').value;
+    const name = document.getElementById('birthday-name').value;
+    const date = document.getElementById('birthday-date').value;
+    
+    if (pwd !== ADMIN_PASSWORD) {
+        alert('Невірний пароль');
+        return;
+    }
+    
+    if (name && date) {
+        birthdaysData.push({ name, date });
+        birthdaysData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        localStorage.setItem('birthdaysData', JSON.stringify(birthdaysData));
+        displayBirthdays();
+        alert('День народження додано');
+        this.reset();
+    }
+});
+
+// Кнопки карусели
+document.getElementById('carousel-prev').addEventListener('click', () => moveBirthdayCarousel('prev'));
+document.getElementById('carousel-next').addEventListener('click', () => moveBirthdayCarousel('next'));
+
 // Ініціалізація дисплею
 displayClubNews();
+displayBirthdays();
 </script>
 
 </body>
