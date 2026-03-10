@@ -28,53 +28,46 @@
         
 
 <div class="forms-container">
-    <section class="form-section news">
-        <h2>📰 Новини</h2>
-        <form class="news-form">
+    <section class="form-section registration">
+        <h2>🔐 Реєстрація</h2>
+        <form id="registration-form">
             <div class="form-group">
-                <label for="news-title">Заголовок:</label>
-                <input type="text" id="news-title" name="news-title" placeholder="Заголовок" required>
+                <label for="reg-name">Ім'я:</label>
+                <input type="text" id="reg-name" name="reg-name" required>
             </div>
             <div class="form-group">
-                <label for="news-content">Текст:</label>
-                <textarea id="news-content" name="news-content" rows="4" placeholder="Новина з тренування..." required></textarea>
+                <label for="reg-email">Email:</label>
+                <input type="email" id="reg-email" name="reg-email" required>
             </div>
-            <button type="submit" class="submit-btn">Опублікувати</button>
+            <button type="submit" class="submit-btn">Зареєструватися</button>
         </form>
     </section>
 
-    <section class="form-section questions">
-        <h2>❓ Запитання</h2>
-        <form class="question-form">
+    <section class="form-section club-news">
+        <h2>📰 Новини клубу (тільки для адміністратора)</h2>
+        <form id="club-news-form">
             <div class="form-group">
-                <label for="name">Ім'я:</label>
-                <input type="text" id="name" name="name" required>
+                <label for="club-news-password">Пароль:</label>
+                <input type="password" id="club-news-password" required>
             </div>
             <div class="form-group">
-                <label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>
+                <label for="club-news-title">Заголовок:</label>
+                <input type="text" id="club-news-title" required>
             </div>
             <div class="form-group">
-                <label for="question">Запитання:</label>
-                <textarea id="question" name="question" rows="3" required></textarea>
+                <label for="club-news-content">Текст:</label>
+                <textarea id="club-news-content" rows="4" required></textarea>
             </div>
-            <button type="submit" class="submit-btn">Відправити</button>
+            <button type="submit" class="submit-btn">Опублікувати</button>
         </form>
     </section>
 </div>
 
 <section class="all-content">
     <div class="content-display">
-        <div class="display-section news-display">
-            <h2>📰 Всі новини</h2>
-            <div class="display-grid" id="news-display-grid">
-            </div>
-        </div>
-
-        <div class="display-section questions-display">
-            <h2>❓ Всі запитання</h2>
-            <div class="display-grid" id="questions-display-grid">
-            </div>
+        <div class="display-section club-news-display">
+            <h2>📰 Всі новини клубу</h2>
+            <div class="display-grid" id="club-news-display-grid"></div>
         </div>
     </div>
 </section>
@@ -94,89 +87,66 @@
 </footer>
 
 <script>
-// Ініціалізація даних з localStorage
-let newsData = JSON.parse(localStorage.getItem('newsData')) || [];
-let questionsData = JSON.parse(localStorage.getItem('questionsData')) || [];
+// localStorage data for registration and club news
+let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+let clubNewsData = JSON.parse(localStorage.getItem('clubNewsData')) || [];
+const ADMIN_PASSWORD = 'admin123'; // змініть на власний секретний пароль
 
-// Функція для відображення всіх новин
-function displayNews() {
-    const newsGrid = document.getElementById('news-display-grid');
+// Показати новини клубу
+function displayClubNews() {
+    const newsGrid = document.getElementById('club-news-display-grid');
     newsGrid.innerHTML = '';
-    
-    if (newsData.length === 0) {
+    if (clubNewsData.length === 0) {
         newsGrid.innerHTML = '<div class="content-item"><p style="color: #999;">Новин немає</p></div>';
         return;
     }
-    
-    newsData.forEach(news => {
+    clubNewsData.forEach(news => {
         const newsItem = document.createElement('div');
         newsItem.className = 'content-item';
         newsItem.innerHTML = `
             <h3>${news.title}</h3>
             <p>${news.content}</p>
+            <p style="font-size:0.8em;color:#666;">${news.date}</p>
         `;
         newsGrid.appendChild(newsItem);
     });
 }
 
-// Функція для відображення всіх запитань
-function displayQuestions() {
-    const questionsGrid = document.getElementById('questions-display-grid');
-    questionsGrid.innerHTML = '';
-    
-    if (questionsData.length === 0) {
-        questionsGrid.innerHTML = '<div class="content-item"><p style="color: #999;">Запитань немає</p></div>';
+// Реєстрація користувача
+const regForm = document.getElementById('registration-form');
+regForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    if (name && email) {
+        registeredUsers.push({ name, email, date: new Date().toLocaleString('uk-UA') });
+        localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
+        alert('Реєстрація успішна');
+        this.reset();
+    }
+});
+
+// Публікація новин клубу (тільки адміністратор)
+const clubNewsForm = document.getElementById('club-news-form');
+clubNewsForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    const pwd = document.getElementById('club-news-password').value;
+    const title = document.getElementById('club-news-title').value;
+    const content = document.getElementById('club-news-content').value;
+    if (pwd !== ADMIN_PASSWORD) {
+        alert('Невірний пароль');
         return;
     }
-    
-    questionsData.forEach(question => {
-        const questionItem = document.createElement('div');
-        questionItem.className = 'content-item';
-        questionItem.innerHTML = `
-            <p><strong>Ім'я:</strong> ${question.name}</p>
-            <p><strong>Email:</strong> ${question.email}</p>
-            <p><strong>Запитання:</strong> ${question.text}</p>
-        `;
-        questionsGrid.appendChild(questionItem);
-    });
-}
-
-// Обработка форми новин
-document.querySelector('.news-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const title = document.getElementById('news-title').value;
-    const content = document.getElementById('news-content').value;
-    
     if (title && content) {
-        newsData.unshift({ title, content, date: new Date().toLocaleString('uk-UA') });
-        localStorage.setItem('newsData', JSON.stringify(newsData));
-        
-        displayNews();
+        clubNewsData.unshift({ title, content, date: new Date().toLocaleString('uk-UA') });
+        localStorage.setItem('clubNewsData', JSON.stringify(clubNewsData));
+        displayClubNews();
         this.reset();
     }
 });
 
-// Обработка форми запитань
-document.querySelector('.question-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-    
-    const name = document.getElementById('name').value;
-    const email = document.getElementById('email').value;
-    const text = document.getElementById('question').value;
-    
-    if (name && email && text) {
-        questionsData.unshift({ name, email, text, date: new Date().toLocaleString('uk-UA') });
-        localStorage.setItem('questionsData', JSON.stringify(questionsData));
-        
-        displayQuestions();
-        this.reset();
-    }
-});
-
-// Ініціалізація дисплею при завантаженні сторінки
-displayNews();
-displayQuestions();
+// Ініціалізація дисплею
+displayClubNews();
 </script>
 
 </body>
