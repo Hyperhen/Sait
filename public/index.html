@@ -122,7 +122,7 @@
 let registeredUsers = JSON.parse(localStorage.getItem('registeredUsers')) || [];
 let clubNewsData = JSON.parse(localStorage.getItem('clubNewsData')) || [];
 let birthdaysData = JSON.parse(localStorage.getItem('birthdaysData')) || [];
-const ADMIN_PASSWORD = 'luti12345'; // змініть на власний секретний пароль
+const ADMIN_PASSWORD = '56324433'; // змініть на власний секретний пароль
 
 let currentBirthdayIndex = 0;
 let birthdayAutoRotate = null;
@@ -221,14 +221,36 @@ function startBirthdayAutoRotate() {
 
 // Реєстрація користувача
 const regForm = document.getElementById('registration-form');
-regForm.addEventListener('submit', function(e) {
+regForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     const name = document.getElementById('reg-name').value;
     const email = document.getElementById('reg-email').value;
     if (name && email) {
+        // Зберегти в localStorage
         registeredUsers.push({ name, email, date: new Date().toLocaleString('uk-UA') });
         localStorage.setItem('registeredUsers', JSON.stringify(registeredUsers));
-        alert('Реєстрація успішна');
+        
+        // Відправити email
+        try {
+            const response = await fetch('/send-registration-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('Реєстрація успішна! Повідомлення відправлено адміністратору.');
+            } else {
+                alert('Реєстрація збережена, але виникла помилка з відправкою email.');
+            }
+        } catch (error) {
+            console.error('Помилка відправки email:', error);
+            alert('Реєстрація збережена, але виникла помилка з відправкою email.');
+        }
+        
         this.reset();
     }
 });
@@ -286,5 +308,3 @@ displayBirthdays();
 
 </body>
 </html>
-
-
