@@ -257,6 +257,35 @@ footer {
     box-shadow: 0 0 8px rgba(228, 63, 90, 0.4);
 }
 
+/* Club News Section (admin only) */
+.club-news {
+    border-left: 4px solid #00d4ff;
+}
+
+.club-news h2 {
+    color: #00d4ff;
+}
+
+.club-news .form-group input,
+.club-news .form-group textarea {
+    border: 2px solid #00d4ff;
+}
+
+.club-news .form-group input:focus,
+.club-news .form-group textarea:focus {
+    border-color: #00e5ff;
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.4);
+}
+
+/* Registration Section */
+.registration {
+    border-left: 4px solid #f7c548;
+}
+
+.registration h2 {
+    color: #f7c548;
+}
+
 .form-group {
     margin-bottom: 15px;
     text-align: left;
@@ -349,6 +378,17 @@ footer {
 
 .questions-display h2 {
     color: #e43f5a;
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 18px;
+}
+
+.club-news-display {
+    border-left-color: #00d4ff;
+}
+
+.club-news-display h2 {
+    color: #00d4ff;
     margin-top: 0;
     margin-bottom: 20px;
     font-size: 18px;
