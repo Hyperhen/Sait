@@ -16,7 +16,7 @@ const app = express();
 const PORT = 3000;
 
 // Папка public для статичних файлів
-app.use(express.static(path.join(__dirname, "public")));
+"public")));
 
 // Дані для вступу
 const joinData = {
