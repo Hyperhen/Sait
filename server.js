@@ -5,18 +5,10 @@ const app = express();
 const PORT = 3000;
 
 // Папка public для статичних файлів
-(path.join(__dirname, "public"));
+app.use(express.static(path.join(__dirname, "public")));
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});const express = require("express");
-const path = require("path");
-
-const app = express();
-const PORT = 3000;
-
-// Папка public для статичних файлів
-"public")));
+// Middleware для парсингу JSON
+app.use(express.json());
 
 // Дані для вступу
 const joinData = {
@@ -24,8 +16,7 @@ const joinData = {
   fields: [
     { name: "firstName", label: "Ім'я", type: "text", required: true },
     { name: "lastName", label: "Прізвище", type: "text", required: true },
-    { name: "telegram", label: "telegram", type: "telegram", required: true },
-    { name: "instagram", label: "instagram", type: "instagram", required: true },
+    { name: "email", label: "Email", type: "email", required: true },
     { name: "phone", label: "Телефон", type: "tel", required: true },
     { name: "password", label: "Пароль", type: "password", required: true }
   ],
@@ -38,11 +29,12 @@ app.get("/api/join-data", (req, res) => {
 });
 
 // API маршрут для обробки вступу
-app.post("/api/join", express.json(), (req, res) => {
+app.post("/api/join", (req, res) => {
   console.log("Новий користувач:", req.body);
   res.json({ success: true, message: "Успішно!" });
 });
 
+// Запуск сервера
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
