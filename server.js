@@ -23,12 +23,12 @@ function initRegistrationsFile() {
 }
 
 // Функція для збереження реєстрацій у файл
-function saveRegistration(name, email, phone, age, experience, message) {
+function saveRegistration(name, telegram, phone, age, experience, message) {
   try {
     const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, 'utf8'));
     registrations.push({
       name,
-      email,
+      telegram,
       phone,
       age,
       experience,
@@ -36,33 +36,29 @@ function saveRegistration(name, email, phone, age, experience, message) {
       timestamp: new Date().toLocaleString('uk-UA')
     });
     fs.writeFileSync(REGISTRATIONS_FILE, JSON.stringify(registrations, null, 2));
-    console.log('Реєстрація збережена у файл:', { name, email, phone, age, experience });
+    console.log('Реєстрація збережена у файл:', { name, telegram, phone, age, experience });
   } catch (error) {
     console.error('Помилка збереження реєстрації:', error);
   }
 }
 
-// Налаштування nodemailer (потрібно налаштувати ваші облікові дані Gmail)
-// Для Gmail потрібно:
-// 1. Увімкнути двофакторну аутентифікацію
-// 2. Створити app password: https://support.google.com/accounts/answer/185833
-// 3. Використати app password замість звичайного пароля
+// Налаштування nodemailer
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'volleyclubluti@gmail.com', // Ваша Gmail адреса
-    pass: 'fjbmowfzfptqjdgn' // App password від Gmail (замініть на ваш)
+    user: 'volleyclubluti@gmail.com',
+    pass: 'fjbmowfzfptqjdgn'
   }
 });
 
 // Endpoint для відправки email про реєстрацію
 app.post('/send-registration-email', async (req, res) => {
-  const { name, email, phone, age, experience, message } = req.body;
+  const { name, telegram, phone, age, experience, message } = req.body;
   
-  console.log('Отримано запит на реєстрацію:', { name, email, phone, age, experience });
+  console.log('Отримано запит на реєстрацію:', { name, telegram, phone, age, experience });
 
   // Збережемо дані у файл
-  saveRegistration(name, email, phone, age, experience, message);
+  saveRegistration(name, telegram, phone, age, experience, message);
 
   // Відправимо email
   const mailOptions = {
@@ -73,7 +69,7 @@ app.post('/send-registration-email', async (req, res) => {
       <div style="font-family: Arial, sans-serif; direction: ltr;">
         <h2 style="color: #1f77d4;">📋 Нова реєстрація!</h2>
         <p><strong>Ім'я:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Телеграм:</strong> ${telegram || 'Не вказано'}</p>
         <p><strong>Телефон:</strong> ${phone || 'Не вказано'}</p>
         <p><strong>Вік:</strong> ${age}</p>
         <p><strong>Досвід:</strong> ${experience}</p>
@@ -90,11 +86,10 @@ app.post('/send-registration-email', async (req, res) => {
     console.log('Email відправлено успішно:', info.messageId);
     res.json({ 
       success: true, 
-      message: 'Спасибі за реєстрацію! Дані збережені.' 
+      message: 'Спасибі за реєс��рацію! Дані збережені.' 
     });
   } catch (error) {
     console.error('Помилка відправки email:', error);
-    // Навіть якщо email не відправився, дані вже збережені у файлі
     res.json({ 
       success: true, 
       message: 'Реєстрація збережена (email могла не відправитися, але дані в безпеці)'
@@ -102,14 +97,39 @@ app.post('/send-registration-email', async (req, res) => {
   }
 });
 
+// Дані для вступу з телеграм
+const joinData = {
+  title: "Вступ",
+  fields: [
+    { name: "firstName", label: "Ім'я", type: "text", required: true },
+    { name: "lastName", label: "Прізвище", type: "text", required: true },
+    { name: "telegram", label: "Телеграм (@username)", type: "text", required: true },
+    { name: "phone", label: "Телефон", type: "tel", required: true },
+    { name: "age", label: "Вік", type: "number", required: true },
+    { name: "experience", label: "Досвід гри", type: "text", required: false }
+  ],
+  submitUrl: "/api/join"
+};
+
+// API маршрут для отримання даних вступу
+app.get("/api/join-data", (req, res) => {
+  res.json(joinData);
+});
+
+// API маршрут для обробки вступу
+app.post("/api/join", (req, res) => {
+  console.log("Новий користувач:", req.body);
+  const { name, telegram, phone, age, experience, message } = req.body;
+  saveRegistration(name, telegram, phone, age, experience, message);
+  res.json({ success: true, message: "Успішно!" });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
-  // Ініціалізуємо файл реєстрацій при старті сервера
   initRegistrationsFile();
   
   console.log(`\n🏐 Сервер запущено на http://localhost:${PORT}`);
   console.log(`📧 Всі реєстрації збережуються у файл: ${REGISTRATIONS_FILE}`);
-  console.log(`📋 Дані в лайві також відправляються на email: volleyclubluti@gmail.com`);
-  console.log('\n📨 Для тестування email перейдіть до http://localhost:3000/test-email\n');
+  console.log(`📋 Дані відправляються на email: volleyclubluti@gmail.com`);
 });
 
 // Тестовий endpoint для перевірки email
@@ -121,9 +141,9 @@ app.get('/test-email', async (req, res) => {
       subject: 'Тестовий email від сайту',
       html: '<h2>Тестовий email працює!</h2><p>Якщо ви отримали цей email, значить налаштування правильні.</p>'
     });
-    res.send('<h1>✅ Email відправлено успішно!</h1><p>Перевірте вашу пошту volleyclubluti@gmail.com</p><p>Message ID: ' + info.messageId + '</p>');
+    res.send('<h1>✅ Email відправлено успішно!</h1><p>Перевірте вашу пошту volleyclubluti@gmail.com</p>');
   } catch (error) {
-    res.send('<h1>❌ Помилка відправки email:</h1><pre>' + error.message + '</pre><p>Перевірте налаштування app password у server.js</p>');
+    res.send('<h1>❌ Помилка відправки email:</h1><pre>' + error.message + '</pre>');
   }
 });
 
