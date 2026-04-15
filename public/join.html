@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Вступ до клубу - Волейбольний клуб Люті</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <img src="img/logo.png" alt="Лого Люті" class="logo">
+    <h1>Волейбольний клуб Люті 🏐</h1>
+    <p>Вступ до команди</p>
+    <a href="index.html" class="back-btn">← Повернутися на головну</a>
+</header>
+
+<section class="join-form-section">
+    <h2>🏐 Вступити в клуб</h2>
+    <p>Заповніть форму нижче, щоб подати заявку на вступ до волейбольного клубу "Люті". Ми зв'яжемося з вами найближчим часом!</p>
+    
+    <form id="registration-form">
+        <div class="form-group">
+            <label for="reg-name">Ім'я та прізвище:</label>
+            <input type="text" id="reg-name" required placeholder="Введіть ваше повне ім'я">
+        </div>
+        <div class="form-group">
+            <label for="reg-email">Email:</label>
+            <input type="email" id="reg-email" required placeholder="your.email@example.com">
+        </div>
+        <div class="form-group">
+            <label for="reg-phone">Телефон (необов'язково):</label>
+            <input type="tel" id="reg-phone" placeholder="+380XXXXXXXXX">
+        </div>
+        <div class="form-group">
+            <label for="reg-age">Вік:</label>
+            <input type="number" id="reg-age" min="10" max="100" required placeholder="Введіть ваш вік">
+        </div>
+        <div class="form-group">
+            <label for="reg-experience">Досвід у волейболі:</label>
+            <select id="reg-experience" required>
+                <option value="">Оберіть рівень</option>
+                <option value="beginner">Початківець</option>
+                <option value="intermediate">Середній</option>
+                <option value="advanced">Просунутий</option>
+                <option value="professional">Професіонал</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="reg-message">Повідомлення (необов'язково):</label>
+            <textarea id="reg-message" rows="4" placeholder="Розкажіть про себе, чому хочете приєднатися тощо..."></textarea>
+        </div>
+        <button type="submit" class="submit-btn">Подати заявку</button>
+    </form>
+</section>
+
+<footer>
+    <p>© 2026 Волейбольний клуб Люті. Всі права захищені.</p>
+</footer>
+
+<script>
+// Реєстрація користувача
+const regForm = document.getElementById('registration-form');
+regForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const name = document.getElementById('reg-name').value;
+    const email = document.getElementById('reg-email').value;
+    const phone = document.getElementById('reg-phone').value;
+    const age = document.getElementById('reg-age').value;
+    const experience = document.getElementById('reg-experience').value;
+    const message = document.getElementById('reg-message').value;
+    
+    if (name && email && age && experience) {
+        // Відправити на сервер
+        try {
+            const response = await fetch('/send-registration-email', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name, email, phone, age, experience, message })
+            });
+            
+            const result = await response.json();
+            if (result.success) {
+                alert('Дякуємо за заявку! Ми зв\'яжемося з вами найближчим часом.');
+                this.reset();
+            } else {
+                alert('Сталася помилка. Спробуйте ще раз.');
+            }
+        } catch (error) {
+            console.error('Помилка відправки:', error);
+            alert('Сталася помилка з\'єднання. Спробуйте ще раз.');
+        }
+    } else {
+        alert('Будь ласка, заповніть всі обов\'язкові поля.');
+    }
+});
+</script>
+
+</body>
+</html>
