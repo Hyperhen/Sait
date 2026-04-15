@@ -13,6 +13,7 @@
   "dependencies": {
     "express": "^5.2.1",
     "nodemailer": "^6.9.7",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "axios": "^0.27.2"
   }
 }
