@@ -2,21 +2,29 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Вступ до клубу - Волейбольний клуб Люті</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<header>
-    <img src="img/logo.png" alt="Лого Люті" class="logo">
-    <h1>Волейбольний клуб Люті 🏐</h1>
-    <p>Вступ до команди</p>
-    <a href="index.html" class="back-btn">← Повернутися на головну</a>
+<header class="site-header site-header--compact">
+    <a href="index.html" class="back-btn">← На головну</a>
+    <div class="site-header__inner">
+        <img src="img/logo.png" alt="Лого Люті" class="logo logo--compact" width="120">
+        <p class="site-header__badge">заявка</p>
+        <h1>Вступ до клубу Люті</h1>
+        <p class="site-header__tagline">Подайте анкету — ми зателефонуємо або напишемо в Telegram</p>
+    </div>
 </header>
 
+<main class="site-shell site-shell--join">
 <section class="join-form-section">
-    <h2>🏐 Вступити в клуб</h2>
-    <p>Заповніть форму нижче, щоб подати заявку на вступ до волейбольного клубу "Люті". Ми зв'яжемося з вами найближчим часом.</p>
+    <h2 class="section-title section-title--center">Подати заявку</h2>
+    <p class="join-form-section__lead">Заповніть поля нижче. Обовʼязкові позначені зірочкою *</p>
     
     <form id="registration-form">
         <div class="form-group">
@@ -52,8 +60,9 @@
         <button type="submit" class="submit-btn">Подати заявку</button>
     </form>
 </section>
+</main>
 
-<footer>
+<footer class="site-footer">
     <p>© 2026 Волейбольний клуб Люті. Всі права захищені.</p>
 </footer>
 

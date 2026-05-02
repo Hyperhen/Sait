@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
@@ -6,19 +8,37 @@ const cors = require("cors");
 const axios = require("axios");
 
 const app = express();
-const PORT = 3000;
 
-// 🤖 Telegram конфіг
-const TELEGRAM_TOKEN = "8684951773:AAEmE0sVMDY6vgwUU29vmwZn1KOGwhL8aM8";
-const TELEGRAM_CHAT_ID = "8042196846";
+const PORT = Number.parseInt(process.env.PORT || "", 10) || 3000;
+const TELEGRAM_TOKEN = process.env.TELEGRAM_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
 
-// Middleware
+const SMTP_USER = process.env.SMTP_USER || process.env.GMAIL_USER || "";
+const SMTP_PASS = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD || "";
+const SMTP_SERVICE = process.env.SMTP_SERVICE || "gmail";
+const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || "";
+const MAIL_TO = process.env.MAIL_TO || MAIL_FROM || "";
+
+function createMailTransporter() {
+  if (!SMTP_USER || !SMTP_PASS) {
+    return null;
+  }
+  return nodemailer.createTransport({
+    service: SMTP_SERVICE,
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+}
+
+const mailTransporter = createMailTransporter();
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-// Файл для збереження реєстрацій
-const REGISTRATIONS_FILE = path.join(__dirname, 'registrations.json');
+const REGISTRATIONS_FILE = path.join(__dirname, "registrations.json");
 
 function initRegistrationsFile() {
   if (!fs.existsSync(REGISTRATIONS_FILE)) {
@@ -28,7 +48,7 @@ function initRegistrationsFile() {
 
 function saveRegistration(name, telegram, phone, age, experience, message) {
   try {
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, 'utf8'));
+    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, "utf8"));
     registrations.push({
       name,
       telegram,
@@ -36,88 +56,84 @@ function saveRegistration(name, telegram, phone, age, experience, message) {
       age,
       experience,
       message,
-      timestamp: new Date().toLocaleString('uk-UA')
+      timestamp: new Date().toLocaleString("uk-UA"),
     });
     fs.writeFileSync(REGISTRATIONS_FILE, JSON.stringify(registrations, null, 2));
-    console.log('✅ Реєстрація збережена:', { name, telegram });
+    console.log("✅ Реєстрація збережена:", { name, telegram });
   } catch (error) {
-    console.error('❌ Помилка збереження:', error);
+    console.error("❌ Помилка збереження:", error);
   }
 }
 
-// 📱 Функція для Telegram
 async function sendTelegramMessage(name, telegram, phone, age, experience, message) {
-  try {
-    const telegramMessage = `
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) {
+    console.warn("⚠️ Telegram не налаштовано: введіть TELEGRAM_TOKEN і TELEGRAM_CHAT_ID у .env");
+    return;
+  }
+
+  const telegramMessage = `
 📋 <b>Нова реєстрація!</b>
 
 👤 <b>Ім'я:</b> ${name}
-📱 <b>Телеграм:</b> ${telegram || 'Не вказано'}
-☎️ <b>Телефон:</b> ${phone || 'Не вказано'}
+📱 <b>Телеграм:</b> ${telegram || "Не вказано"}
+☎️ <b>Телефон:</b> ${phone || "Не вказано"}
 🎂 <b>Вік:</b> ${age}
-⚽ <b>Досвід:</b> ${experience || 'Не вказано'}
-💬 <b>Повідомлення:</b> ${message || 'Немає'}
+⚽ <b>Досвід:</b> ${experience || "Не вказано"}
+💬 <b>Повідомлення:</b> ${message || "Немає"}
 
-📅 <b>Дата:</b> ${new Date().toLocaleString('uk-UA')}
+📅 <b>Дата:</b> ${new Date().toLocaleString("uk-UA")}
     `;
 
-    await axios.post(
-      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`,
-      {
-        chat_id: TELEGRAM_CHAT_ID,
-        text: telegramMessage,
-        parse_mode: 'HTML'
-      }
-    );
-
-    console.log('✅ Telegram повідомлення відправлено!');
+  try {
+    await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: telegramMessage,
+      parse_mode: "HTML",
+    });
+    console.log("✅ Telegram повідомлення відправлено!");
   } catch (error) {
-    console.error('❌ Помилка Telegram:', error.message);
+    const msg = error && error.message ? error.message : String(error);
+    console.error("❌ Помилка Telegram:", msg);
   }
 }
 
-// Email налаштування
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: 'volleyclubluti@gmail.com',
-    pass: 'fjbmowfzfptqjdgn'
-  }
-});
-
-// Endpoint для реєстрації
-app.post('/send-registration-email', async (req, res) => {
+app.post("/send-registration-email", async (req, res) => {
   const { name, telegram, phone, age, experience, message } = req.body;
-  
-  console.log('📥 Нова реєстрація:', { name, telegram });
+
+  console.log("📥 Нова реєстрація:", { name, telegram });
 
   saveRegistration(name, telegram, phone, age, experience, message);
   await sendTelegramMessage(name, telegram, phone, age, experience, message);
 
+  if (!mailTransporter || !MAIL_FROM || !MAIL_TO) {
+    console.warn("⚠️ Email не налаштовано: задайте SMTP_USER, SMTP_PASS, MAIL_FROM, MAIL_TO у .env");
+    return res.json({ success: true, message: "Реєстрація збережена" });
+  }
+
   const mailOptions = {
-    from: 'volleyclubluti@gmail.com',
-    to: 'volleyclubluti@gmail.com',
-    subject: '✅ Нова реєстрація - Волейбольний клуб Люті',
+    from: MAIL_FROM,
+    to: MAIL_TO,
+    subject: "✅ Нова реєстрація - Волейбольний клуб Люті",
     html: `
       <div style="font-family: Arial, sans-serif;">
         <h2 style="color: #1f77d4;">📋 Нова реєстрація!</h2>
         <p><strong>Ім'я:</strong> ${name}</p>
-        <p><strong>Телеграм:</strong> ${telegram || 'Не вказано'}</p>
-        <p><strong>Телефон:</strong> ${phone || 'Не вказано'}</p>
+        <p><strong>Телеграм:</strong> ${telegram || "Не вказано"}</p>
+        <p><strong>Телефон:</strong> ${phone || "Не вказано"}</p>
         <p><strong>Вік:</strong> ${age}</p>
         <p><strong>Досвід:</strong> ${experience}</p>
-        <p><strong>Повідомлення:</strong> ${message || 'Немає'}</p>
-        <p><strong>Дата:</strong> ${new Date().toLocaleString('uk-UA')}</p>
+        <p><strong>Повідомлення:</strong> ${message || "Немає"}</p>
+        <p><strong>Дата:</strong> ${new Date().toLocaleString("uk-UA")}</p>
       </div>
-    `
+    `,
   };
 
   try {
-    await transporter.sendMail(mailOptions);
-    res.json({ success: true, message: 'Спасибі за реєстрацію!' });
+    await mailTransporter.sendMail(mailOptions);
+    res.json({ success: true, message: "Спасибі за реєстрацію!" });
   } catch (error) {
-    console.error('❌ Помилка Email:', error);
-    res.json({ success: true, message: 'Реєстрація збережена' });
+    console.error("❌ Помилка Email:", error);
+    res.json({ success: true, message: "Реєстрація збережена" });
   }
 });
 
@@ -130,9 +146,9 @@ app.get("/api/join-data", (req, res) => {
       { name: "telegram", label: "Телеграм (@username)", type: "text", required: true },
       { name: "phone", label: "Телефон", type: "tel", required: true },
       { name: "age", label: "Вік", type: "number", required: true },
-      { name: "experience", label: "Досвід гри", type: "text", required: false }
+      { name: "experience", label: "Досвід гри", type: "text", required: false },
     ],
-    submitUrl: "/send-registration-email"
+    submitUrl: "/send-registration-email",
   });
 });
 
@@ -143,17 +159,26 @@ app.post("/api/join", (req, res) => {
   res.json({ success: true, message: "Успішно!" });
 });
 
+app.get("/registrations", (req, res) => {
+  try {
+    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, "utf8"));
+    res.json({ total: registrations.length, registrations });
+  } catch (error) {
+    res.status(500).json({ error: "Помилка читання файлу" });
+  }
+});
+
 app.listen(PORT, "0.0.0.0", () => {
   initRegistrationsFile();
   console.log(`\n🏐 Сервер запущено на http://localhost:${PORT}`);
-  console.log(`📱 Telegram бот активний!`);
-});
-
-app.get('/registrations', (req, res) => {
-  try {
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, 'utf8'));
-    res.json({ total: registrations.length, registrations });
-  } catch (error) {
-    res.status(500).json({ error: 'Помилка читання файлу' });
+  if (TELEGRAM_TOKEN && TELEGRAM_CHAT_ID) {
+    console.log("📱 Telegram бот: налаштовано");
+  } else {
+    console.log("📱 Telegram: не налаштовано (.env)");
+  }
+  if (mailTransporter && MAIL_FROM && MAIL_TO) {
+    console.log("✉️ Email: налаштовано");
+  } else {
+    console.log("✉️ Email: не налаштовано (.env)");
   }
 });
