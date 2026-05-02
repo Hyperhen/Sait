@@ -326,7 +326,7 @@ app.get("/registrations", async (req, res, next) => {
 
 app.get("/api/news", async (req, res, next) => {
   try {
-    const news = await clubStore.getClubNews();
+    const news = await clubStore.getClubNewsPublic();
     res.json({ news });
   } catch (e) {
     next(e);
@@ -335,8 +335,32 @@ app.get("/api/news", async (req, res, next) => {
 
 app.get("/api/birthdays", async (req, res, next) => {
   try {
-    const all = await clubStore.getBirthdaysSorted();
+    const all = await clubStore.getBirthdaysWithIdsSorted();
     res.json({ birthdays: filterBirthdaysPublicWindow(all) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get("/api/bo/news", requireBoSession, async (req, res, next) => {
+  try {
+    const news = await clubStore.getClubNewsWithIds();
+    res.json({ news });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.delete("/api/bo/news/:id", requireBoSession, async (req, res, next) => {
+  try {
+    const result = await clubStore.deleteClubNewsById(req.params.id);
+    if (result.reason === "bad_id") {
+      return res.status(400).json({ error: "Некоректний ідентифікатор запису." });
+    }
+    if (result.reason === "not_found") {
+      return res.status(404).json({ error: "Новину не знайдено." });
+    }
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }
@@ -344,8 +368,23 @@ app.get("/api/birthdays", async (req, res, next) => {
 
 app.get("/api/bo/birthdays", requireBoSession, async (req, res, next) => {
   try {
-    const birthdays = await clubStore.getBirthdaysSorted();
+    const birthdays = await clubStore.getBirthdaysWithIdsSorted();
     res.json({ birthdays });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.delete("/api/bo/birthdays/:id", requireBoSession, async (req, res, next) => {
+  try {
+    const result = await clubStore.deleteClubBirthdayById(req.params.id);
+    if (result.reason === "bad_id") {
+      return res.status(400).json({ error: "Некоректний ідентифікатор запису." });
+    }
+    if (result.reason === "not_found") {
+      return res.status(404).json({ error: "Запис не знайдено." });
+    }
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }

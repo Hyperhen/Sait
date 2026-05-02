@@ -37,9 +37,11 @@
     </div>
 </section>
 
-<section id="bo-panel" class="section-block forms-container" hidden aria-hidden="true">
-    <section class="form-section club-news">
-        <h2>📰 Новини клубу</h2>
+<section id="bo-panel" class="section-block forms-container bo-panel-grid" hidden aria-hidden="true">
+    <section class="form-section club-news bo-manage-block">
+        <h2>📰 Опубліковані новини</h2>
+        <div id="bo-news-list" class="bo-managed-list" aria-live="polite"></div>
+        <h3 class="bo-form-subtitle">Додати новину</h3>
         <form id="club-news-form">
             <div class="form-group">
                 <label for="club-news-title">Заголовок</label>
@@ -54,8 +56,10 @@
         </form>
     </section>
 
-    <section class="form-section birthdays">
-        <h2>🎂 Дні народження</h2>
+    <section class="form-section birthdays bo-manage-block">
+        <h2>🎂 Усі дні народження</h2>
+        <div id="bo-birthdays-list" class="bo-managed-list" aria-live="polite"></div>
+        <h3 class="bo-form-subtitle">Додати запис</h3>
         <form id="birthdays-form">
             <div class="form-group">
                 <label for="birthday-name">Ім'я</label>
@@ -83,6 +87,159 @@ const gate = document.getElementById('bo-gate');
 const panel = document.getElementById('bo-panel');
 const loginErr = document.getElementById('bo-login-error');
 const pwInput = document.getElementById('bo-password');
+const boNewsList = document.getElementById('bo-news-list');
+const boBirthdaysList = document.getElementById('bo-birthdays-list');
+
+function truncateText(text, max) {
+    const s = String(text || '');
+    return s.length <= max ? s : `${s.slice(0, max - 1)}…`;
+}
+
+function formatBirthdayDisplay(isoDate) {
+    if (!isoDate || typeof isoDate !== 'string') return '';
+    const safe = isoDate.includes('T') ? isoDate.split('T')[0] : isoDate;
+    const d = new Date(`${safe}T12:00:00`);
+    return Number.isFinite(d.getTime())
+        ? d.toLocaleDateString('uk-UA', { day: 'numeric', month: 'long', year: 'numeric' })
+        : isoDate;
+}
+
+async function renderBoNewsList(news) {
+    boNewsList.replaceChildren();
+    if (!Array.isArray(news) || news.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'empty-state bo-list-empty';
+        p.textContent = 'Немає жодної новини';
+        boNewsList.appendChild(p);
+        return;
+    }
+    news.forEach((item) => {
+        const article = document.createElement('article');
+        article.className = 'bo-managed-row';
+        const main = document.createElement('div');
+        main.className = 'bo-managed-row__main';
+        const title = document.createElement('strong');
+        title.className = 'bo-managed-row__title';
+        title.textContent = item.title;
+        const meta = document.createElement('p');
+        meta.className = 'bo-managed-row__meta';
+        meta.textContent = item.date || '';
+        const preview = document.createElement('p');
+        preview.className = 'bo-managed-row__preview';
+        preview.textContent = truncateText(item.content, 180);
+        main.append(title, meta, preview);
+        const aside = document.createElement('aside');
+        aside.className = 'bo-managed-row__aside';
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'submit-btn submit-btn--ghost';
+        del.textContent = 'Видалити';
+        del.dataset.deleteNewsId = item.id;
+        aside.appendChild(del);
+        article.append(main, aside);
+        boNewsList.appendChild(article);
+    });
+}
+
+async function renderBoBirthdaysList(list) {
+    boBirthdaysList.replaceChildren();
+    if (!Array.isArray(list) || list.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'empty-state bo-list-empty';
+        p.textContent = 'Немає записів';
+        boBirthdaysList.appendChild(p);
+        return;
+    }
+    list.forEach((item) => {
+        const article = document.createElement('article');
+        article.className = 'bo-managed-row';
+        const main = document.createElement('div');
+        main.className = 'bo-managed-row__main';
+        const strong = document.createElement('strong');
+        strong.textContent = item.name;
+        const meta = document.createElement('p');
+        meta.className = 'bo-managed-row__meta';
+        meta.textContent = formatBirthdayDisplay(item.date);
+        main.append(strong, meta);
+        const aside = document.createElement('aside');
+        aside.className = 'bo-managed-row__aside';
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'submit-btn submit-btn--ghost';
+        del.textContent = 'Видалити';
+        del.dataset.deleteBirthdayId = item.id;
+        aside.appendChild(del);
+        article.append(main, aside);
+        boBirthdaysList.appendChild(article);
+    });
+}
+
+async function loadBoLists() {
+    const [rn, rb] = await Promise.all([
+        fetch('/api/bo/news', { credentials: 'same-origin' }),
+        fetch('/api/bo/birthdays', { credentials: 'same-origin' }),
+    ]);
+    if (rn.status === 401 || rb.status === 401) {
+        showGate();
+        return false;
+    }
+    if (!rn.ok || !rb.ok) {
+        renderBoNewsList([]);
+        renderBoBirthdaysList([]);
+        return false;
+    }
+    const jn = await rn.json();
+    const jb = await rb.json();
+    await renderBoNewsList(jn.news || []);
+    await renderBoBirthdaysList(jb.birthdays || []);
+    return true;
+}
+
+async function refreshSessionOnLoad() {
+    const res = await fetch('/api/bo/session', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('session');
+    const data = await res.json();
+    if (!data.authenticated) {
+        showGate();
+        return;
+    }
+    showPanel();
+    await loadBoLists();
+}
+
+document.getElementById('bo-news-list').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-delete-news-id]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-delete-news-id');
+    if (!id || !window.confirm('Видалити цю новину з сайту?')) return;
+    const res = await fetch(`/api/bo/news/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (res.status === 401) {
+        showGate();
+        return;
+    }
+    if (!res.ok) {
+        alert('Не вдалося видалити.');
+        return;
+    }
+    await loadBoLists();
+});
+
+document.getElementById('bo-birthdays-list').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-delete-birthday-id]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-delete-birthday-id');
+    if (!id || !window.confirm('Видалити цей день народження?')) return;
+    const res = await fetch(`/api/bo/birthdays/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (res.status === 401) {
+        showGate();
+        return;
+    }
+    if (!res.ok) {
+        alert('Не вдалося видалити.');
+        return;
+    }
+    await loadBoLists();
+});
 
 function showGate() {
     gate.hidden = false;
@@ -97,13 +254,6 @@ function showPanel() {
     loginErr.hidden = true;
     panel.hidden = false;
     panel.removeAttribute('aria-hidden');
-}
-
-async function refreshSession() {
-    const res = await fetch('/api/bo/session', { credentials: 'same-origin' });
-    if (!res.ok) throw new Error('session');
-    const data = await res.json();
-    if (data.authenticated) showPanel(); else showGate();
 }
 
 document.getElementById('bo-login-form').addEventListener('submit', async (e) => {
@@ -125,6 +275,7 @@ document.getElementById('bo-login-form').addEventListener('submit', async (e) =>
         }
         pwInput.value = '';
         showPanel();
+        await loadBoLists();
     } catch {
         loginErr.textContent = 'Звʼязку з сервером немає.';
         loginErr.hidden = false;
@@ -150,6 +301,7 @@ document.getElementById('club-news-form').addEventListener('submit', async (e) =
         msgEl.classList.add('bo-flash--ok');
         msgEl.textContent = 'Опубліковано на сайті.';
         e.target.reset();
+        await loadBoLists();
     } else {
         msgEl.classList.add('bo-flash--error');
         msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося зберегти.');
@@ -176,6 +328,7 @@ document.getElementById('birthdays-form').addEventListener('submit', async (e) =
         msgEl.classList.add('bo-flash--ok');
         msgEl.textContent = 'Запис додано.';
         e.target.reset();
+        await loadBoLists();
     } else {
         msgEl.classList.add('bo-flash--error');
         msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося зберегти.');
@@ -183,7 +336,7 @@ document.getElementById('birthdays-form').addEventListener('submit', async (e) =
     }
 });
 
-refreshSession().catch(showGate);
+refreshSessionOnLoad().catch(showGate);
 </script>
 
 </body>

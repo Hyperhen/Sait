@@ -354,6 +354,96 @@ section {
     color: var(--accent-strong);
 }
 
+.bo-panel-grid.forms-container {
+    max-width: 44rem;
+    margin-inline: auto;
+}
+
+@media (min-width: 560px) {
+    .forms-container.bo-panel-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.bo-form-subtitle {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 0.9375rem;
+    color: var(--text-muted);
+    margin: 1.25rem 0 0.75rem;
+}
+
+.bo-managed-list {
+    margin: 0 0 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    max-height: min(380px, 48vh);
+    overflow-y: auto;
+}
+
+.bo-list-empty {
+    margin: 0.25rem 0 0;
+    padding: 0.5rem 0;
+}
+
+.bo-managed-row {
+    display: flex;
+    gap: 0.85rem;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 0.75rem 0.85rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    background: rgba(8, 10, 18, 0.45);
+    text-align: left;
+}
+
+.bo-managed-row__main {
+    min-width: 0;
+}
+
+.bo-managed-row__title,
+.bo-managed-row__main > strong:first-child {
+    display: block;
+    font-size: 0.975rem;
+    color: var(--text);
+}
+
+.bo-managed-row__meta {
+    margin: 0.35rem 0 0;
+    font-size: 0.8125rem;
+    color: var(--text-faint);
+}
+
+.bo-managed-row__preview {
+    margin: 0.4rem 0 0;
+    font-size: 0.875rem;
+    line-height: 1.45;
+    color: var(--text-muted);
+}
+
+.bo-managed-row__aside {
+    flex-shrink: 0;
+    padding-top: 0.1rem;
+}
+
+.submit-btn.submit-btn--ghost {
+    padding: 0.45rem 0.85rem;
+    font-size: 0.8125rem;
+    width: auto;
+    margin: 0;
+    background: transparent;
+    color: rgba(248, 113, 113, 0.95);
+    border: 1px solid rgba(248, 113, 113, 0.4);
+    box-shadow: none;
+}
+
+.submit-btn.submit-btn--ghost:hover {
+    transform: none;
+    background: rgba(248, 113, 113, 0.12);
+}
+
 .form-section {
     text-align: left;
     padding: clamp(1.5rem, 4vw, 1.85rem);
