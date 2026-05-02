@@ -9,6 +9,7 @@ const cors = require("cors");
 const axios = require("axios");
 const cookieSession = require("cookie-session");
 const rateLimit = require("express-rate-limit");
+const clubStore = require("./lib/clubStore");
 
 const app = express();
 
@@ -29,23 +30,6 @@ const TRUST_PROXY_DISABLED_EXPLICIT =
 if (!TRUST_PROXY_DISABLED_EXPLICIT && (TRUST_PROXY_ENABLED || IS_PROD)) {
   app.set("trust proxy", 1);
 }
-
-/**
- * Шляхи до JSON-даних. На read-only deploy (serverless) задайте DATA_DIR і REGISTRATIONS_FILE на writable шлях, напр. /tmp/luti-data.
- */
-const DATA_DIR = path.resolve(
-  typeof process.env.DATA_DIR === "string" && process.env.DATA_DIR.trim() !== ""
-    ? process.env.DATA_DIR.trim()
-    : path.join(__dirname, "data")
-);
-const REGISTRATIONS_FILE = path.resolve(
-  typeof process.env.REGISTRATIONS_FILE === "string" && process.env.REGISTRATIONS_FILE.trim() !== ""
-    ? process.env.REGISTRATIONS_FILE.trim()
-    : path.join(__dirname, "registrations.json")
-);
-
-const CLUB_NEWS_FILE = path.join(DATA_DIR, "club-news.json");
-const CLUB_BIRTHDAYS_FILE = path.join(DATA_DIR, "birthdays.json");
 
 const SESSION_SECRET = process.env.SESSION_SECRET || (IS_PROD ? "" : "__dev-session-secret-change-in-env__");
 const CLUB_ADMIN_PASSWORD = process.env.CLUB_ADMIN_PASSWORD || "";
@@ -90,42 +74,24 @@ function passwordsEqual(inputPlain, storedPlain) {
   }
 }
 
-function initClubDataFiles() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+function initClubDataFilesFs() {
+  if (clubStore.useMongo()) return;
+  if (!fs.existsSync(clubStore.DATA_DIR)) {
+    fs.mkdirSync(clubStore.DATA_DIR, { recursive: true });
   }
-  if (!fs.existsSync(CLUB_NEWS_FILE)) {
-    fs.writeFileSync(CLUB_NEWS_FILE, JSON.stringify([], null, 2), "utf8");
+  if (!fs.existsSync(clubStore.CLUB_NEWS_FILE)) {
+    fs.writeFileSync(clubStore.CLUB_NEWS_FILE, JSON.stringify([], null, 2), "utf8");
   }
-  if (!fs.existsSync(CLUB_BIRTHDAYS_FILE)) {
-    fs.writeFileSync(CLUB_BIRTHDAYS_FILE, JSON.stringify([], null, 2), "utf8");
-  }
-}
-
-function readClubNews() {
-  try {
-    const arr = JSON.parse(fs.readFileSync(CLUB_NEWS_FILE, "utf8"));
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+  if (!fs.existsSync(clubStore.CLUB_BIRTHDAYS_FILE)) {
+    fs.writeFileSync(clubStore.CLUB_BIRTHDAYS_FILE, JSON.stringify([], null, 2), "utf8");
   }
 }
 
-function writeClubNews(list) {
-  fs.writeFileSync(CLUB_NEWS_FILE, JSON.stringify(list, null, 2), "utf8");
-}
-
-function readClubBirthdays() {
-  try {
-    const arr = JSON.parse(fs.readFileSync(CLUB_BIRTHDAYS_FILE, "utf8"));
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
+function initRegistrationsFileFs() {
+  if (clubStore.useMongo()) return;
+  if (!fs.existsSync(clubStore.REGISTRATIONS_PATH)) {
+    fs.writeFileSync(clubStore.REGISTRATIONS_PATH, JSON.stringify([], null, 2));
   }
-}
-
-function writeClubBirthdays(list) {
-  fs.writeFileSync(CLUB_BIRTHDAYS_FILE, JSON.stringify(list, null, 2), "utf8");
 }
 
 function birthdayEntryValid(name, dateStr) {
@@ -234,16 +200,9 @@ function requireBoSession(req, res, next) {
   res.status(401).json({ error: "Unauthorized" });
 }
 
-function initRegistrationsFile() {
-  if (!fs.existsSync(REGISTRATIONS_FILE)) {
-    fs.writeFileSync(REGISTRATIONS_FILE, JSON.stringify([], null, 2));
-  }
-}
-
-function saveRegistration(name, telegram, phone, age, experience, message) {
+async function saveRegistration(name, telegram, phone, age, experience, message) {
   try {
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, "utf8"));
-    registrations.push({
+    await clubStore.saveRegistrationRow({
       name,
       telegram,
       phone,
@@ -252,7 +211,6 @@ function saveRegistration(name, telegram, phone, age, experience, message) {
       message,
       timestamp: new Date().toLocaleString("uk-UA"),
     });
-    fs.writeFileSync(REGISTRATIONS_FILE, JSON.stringify(registrations, null, 2));
     console.log("✅ Реєстрація збережена:", { name, telegram });
   } catch (error) {
     console.error("❌ Помилка збереження:", error);
@@ -296,7 +254,7 @@ app.post("/send-registration-email", async (req, res) => {
 
   console.log("📥 Нова реєстрація:", { name, telegram });
 
-  saveRegistration(name, telegram, phone, age, experience, message);
+  await saveRegistration(name, telegram, phone, age, experience, message);
   await sendTelegramMessage(name, telegram, phone, age, experience, message);
 
   if (!mailTransporter || !MAIL_FROM || !MAIL_TO) {
@@ -346,34 +304,51 @@ app.get("/api/join-data", (req, res) => {
   });
 });
 
-app.post("/api/join", (req, res) => {
-  console.log("👤 Новий користувач:", req.body);
-  const { name, telegram, phone, age, experience, message } = req.body;
-  saveRegistration(name, telegram, phone, age, experience, message);
-  res.json({ success: true, message: "Успішно!" });
-});
-
-app.get("/registrations", (req, res) => {
+app.post("/api/join", async (req, res, next) => {
   try {
-    const registrations = JSON.parse(fs.readFileSync(REGISTRATIONS_FILE, "utf8"));
-    res.json({ total: registrations.length, registrations });
-  } catch (error) {
-    res.status(500).json({ error: "Помилка читання файлу" });
+    console.log("👤 Новий користувач:", req.body);
+    const { name, telegram, phone, age, experience, message } = req.body;
+    await saveRegistration(name, telegram, phone, age, experience, message);
+    res.json({ success: true, message: "Успішно!" });
+  } catch (e) {
+    next(e);
   }
 });
 
-app.get("/api/news", (_req, res) => {
-  res.json({ news: readClubNews() });
+app.get("/registrations", async (req, res, next) => {
+  try {
+    const registrations = await clubStore.listRegistrations();
+    res.json({ total: registrations.length, registrations });
+  } catch (error) {
+    next(error);
+  }
 });
 
-app.get("/api/birthdays", (_req, res) => {
-  res.json({ birthdays: filterBirthdaysPublicWindow(readClubBirthdays()) });
+app.get("/api/news", async (req, res, next) => {
+  try {
+    const news = await clubStore.getClubNews();
+    res.json({ news });
+  } catch (e) {
+    next(e);
+  }
 });
 
-app.get("/api/bo/birthdays", requireBoSession, (_req, res) => {
-  const list = readClubBirthdays();
-  list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  res.json({ birthdays: list });
+app.get("/api/birthdays", async (req, res, next) => {
+  try {
+    const all = await clubStore.getBirthdaysSorted();
+    res.json({ birthdays: filterBirthdaysPublicWindow(all) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get("/api/bo/birthdays", requireBoSession, async (req, res, next) => {
+  try {
+    const birthdays = await clubStore.getBirthdaysSorted();
+    res.json({ birthdays });
+  } catch (e) {
+    next(e);
+  }
 });
 
 app.get("/api/bo/session", (req, res) => {
@@ -407,46 +382,64 @@ app.post("/api/bo/logout", (req, res) => {
   res.json({ ok: true });
 });
 
-app.post("/api/bo/news", requireBoSession, (req, res) => {
-  const { title, content } = req.body || {};
-  if (typeof title !== "string" || title.trim().length < 1 || title.length > 200) {
-    return res.status(400).json({ error: "Заголовок: 1–200 символів." });
+app.post("/api/bo/news", requireBoSession, async (req, res, next) => {
+  try {
+    const { title, content } = req.body || {};
+    if (typeof title !== "string" || title.trim().length < 1 || title.length > 200) {
+      return res.status(400).json({ error: "Заголовок: 1–200 символів." });
+    }
+    if (typeof content !== "string" || content.trim().length < 1 || content.length > 10000) {
+      return res.status(400).json({ error: "Текст: 1–10000 символів." });
+    }
+    await clubStore.prependClubNews({
+      title: title.trim(),
+      content: content.trim(),
+      date: new Date().toLocaleString("uk-UA"),
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
   }
-  if (typeof content !== "string" || content.trim().length < 1 || content.length > 10000) {
-    return res.status(400).json({ error: "Текст: 1–10000 символів." });
-  }
-  const list = readClubNews();
-  list.unshift({
-    title: title.trim(),
-    content: content.trim(),
-    date: new Date().toLocaleString("uk-UA"),
-  });
-  writeClubNews(list);
-  res.json({ ok: true });
 });
 
-app.post("/api/bo/birthdays", requireBoSession, (req, res) => {
-  const { name, date } = req.body || {};
-  if (!birthdayEntryValid(name, date)) {
-    return res.status(400).json({ error: "Некоректні імʼя або дата." });
+app.post("/api/bo/birthdays", requireBoSession, async (req, res, next) => {
+  try {
+    const { name, date } = req.body || {};
+    if (!birthdayEntryValid(name, date)) {
+      return res.status(400).json({ error: "Некоректні імʼя або дата." });
+    }
+    await clubStore.appendClubBirthday({ name: name.trim(), date });
+    res.json({ ok: true });
+  } catch (e) {
+    next(e);
   }
-  const list = readClubBirthdays();
-  list.push({ name: name.trim(), date });
-  list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  writeClubBirthdays(list);
-  res.json({ ok: true });
 });
 
 app.use(express.static(path.join(__dirname, "public")));
 
+app.use((err, req, res, _next) => {
+  console.error(err);
+  if (res.headersSent) return;
+  res.status(500).json({
+    error:
+      NODE_ENV === "production"
+        ? "Внутрішня помилка сервера"
+        : err.message || "Помилка сервера",
+  });
+});
+
 app.listen(PORT, "0.0.0.0", () => {
-  initRegistrationsFile();
-  initClubDataFiles();
+  initRegistrationsFileFs();
+  initClubDataFilesFs();
   console.log(`\n🏐 Сервер запущено на http://localhost:${PORT}`);
   if (!TRUST_PROXY_DISABLED_EXPLICIT && (TRUST_PROXY_ENABLED || IS_PROD)) {
     console.log(`   Trust proxy: увімкнено (для HTTPS за проксі; вимкнути: TRUST_PROXY=0)`);
   }
-  console.log(`   Дані клубу: ${DATA_DIR}  |  реєстрації: ${REGISTRATIONS_FILE}`);
+  if (clubStore.useMongo()) {
+    console.log("   Дані клубу: MongoDB (MONGODB_URI)");
+  } else {
+    console.log(`   Дані клубу (файли): ${clubStore.DATA_DIR}  |  реєстрації: ${clubStore.REGISTRATIONS_PATH}`);
+  }
   console.log(`   Адмін-сесія: підписаний cookie (без файлового store на диску).`);
   console.log(`   Прихована адмін-панель: задайте CLUB_ADMIN_PASSWORD і SESSION_SECRET у .env`);
   if (!CLUB_ADMIN_PASSWORD) {

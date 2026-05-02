@@ -5,6 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "migrate:mongo": "node scripts/migrate-json-to-mongodb.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -18,6 +19,7 @@
     "dotenv": "^16.4.5",
     "express": "^5.2.1",
     "express-rate-limit": "^8.4.1",
+    "mongoose": "^9.6.1",
     "nodemailer": "^6.9.7"
   }
 }
