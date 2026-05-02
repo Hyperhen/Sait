@@ -7,37 +7,37 @@ const crypto = require("crypto");
 const nodemailer = require("nodemailer");
 const cors = require("cors");
 const axios = require("axios");
-const session = require("express-session");
-const FileStoreSession = require("session-file-store")(session);
+const cookieSession = require("cookie-session");
 const rateLimit = require("express-rate-limit");
 
 const app = express();
-
-const TRUST_PROXY_ENABLED =
-  process.env.TRUST_PROXY === "1" || /^true$/i.test(process.env.TRUST_PROXY || "");
-
-/** Якщо Node за nginx/Caddy/load balancer із HTTPS — часто потрібно для коректної поведінки запитів. */
-if (TRUST_PROXY_ENABLED) {
-  app.set("trust proxy", 1);
-}
-
-const SESSION_STORE_DIR = path.resolve(
-  typeof process.env.SESSION_STORE_PATH === "string" && process.env.SESSION_STORE_PATH.trim() !== ""
-    ? process.env.SESSION_STORE_PATH.trim()
-    : path.join(__dirname, ".sessions")
-);
-
-function ensureSessionStoreDir() {
-  if (!fs.existsSync(SESSION_STORE_DIR)) {
-    fs.mkdirSync(SESSION_STORE_DIR, { recursive: true });
-  }
-}
 
 const PORT = Number.parseInt(process.env.PORT || "", 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const IS_PROD = NODE_ENV === "production";
 
-const DATA_DIR = path.join(__dirname, "data");
+const TRUST_PROXY_ENABLED =
+  process.env.TRUST_PROXY === "1" || /^true$/i.test(process.env.TRUST_PROXY || "");
+
+/** За reverse proxy (nginx, Caddy, багато PaaS) — коректні X-Forwarded-Proto / IP. У Vercel зазвичай задайте TRUST_PROXY=1. */
+if (TRUST_PROXY_ENABLED) {
+  app.set("trust proxy", 1);
+}
+
+/**
+ * Шляхи до JSON-даних. На read-only deploy (serverless) задайте DATA_DIR і REGISTRATIONS_FILE на writable шлях, напр. /tmp/luti-data.
+ */
+const DATA_DIR = path.resolve(
+  typeof process.env.DATA_DIR === "string" && process.env.DATA_DIR.trim() !== ""
+    ? process.env.DATA_DIR.trim()
+    : path.join(__dirname, "data")
+);
+const REGISTRATIONS_FILE = path.resolve(
+  typeof process.env.REGISTRATIONS_FILE === "string" && process.env.REGISTRATIONS_FILE.trim() !== ""
+    ? process.env.REGISTRATIONS_FILE.trim()
+    : path.join(__dirname, "registrations.json")
+);
+
 const CLUB_NEWS_FILE = path.join(DATA_DIR, "club-news.json");
 const CLUB_BIRTHDAYS_FILE = path.join(DATA_DIR, "birthdays.json");
 
@@ -195,34 +195,18 @@ if (IS_PROD && (!SESSION_SECRET || SESSION_SECRET.includes("__dev-session-secret
   process.exit(1);
 }
 
-ensureSessionStoreDir();
-
 /**
- * Файлове сховище сесій спільне для усіх воркерів процесу (PM2 cluster, кілька реплік на одній машині).
- * Інакше логін на одному воркері, POST на іншому → 401 «немає сесії».
+ * Підписана сесія в cookie (без запису на диск) — потрібно для Vercel / serverless і стабільніше за MemoryStore при кількох інстансах.
  */
-const adminSessionStore = new FileStoreSession({
-  path: SESSION_STORE_DIR,
-  ttl: 14 * 24 * 3600,
-  retries: 0,
-  logFn() {},
-});
-
 app.use(cors());
 app.use(express.json({ limit: "128kb" }));
 app.use(
-  session({
+  cookieSession({
     name: "luti.bo",
-    secret: SESSION_SECRET || "__dev-session-secret-change-in-env__",
-    store: adminSessionStore,
-    resave: false,
-    saveUninitialized: false,
-    rolling: true,
-    cookie: {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: IS_PROD,
-    },
+    keys: [SESSION_SECRET || "__dev-session-secret-change-in-env__"],
+    httpOnly: true,
+    sameSite: "lax",
+    secure: IS_PROD,
   })
 );
 
@@ -243,8 +227,6 @@ function requireBoSession(req, res, next) {
   if (req.session && req.session.bo === true) return next();
   res.status(401).json({ error: "Unauthorized" });
 }
-
-const REGISTRATIONS_FILE = path.join(__dirname, "registrations.json");
 
 function initRegistrationsFile() {
   if (!fs.existsSync(REGISTRATIONS_FILE)) {
@@ -411,24 +393,12 @@ app.post("/api/bo/login", loginLimiter, (req, res) => {
   }
 
   req.session.bo = true;
-  req.session.save((err) => {
-    if (err) {
-      console.error("❌ session save:", err);
-      return res.status(500).json({ error: "Не вдалося зберегти сесію." });
-    }
-    res.json({ ok: true });
-  });
+  res.json({ ok: true });
 });
 
 app.post("/api/bo/logout", (req, res) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("❌ session destroy:", err);
-      return res.status(500).json({ error: "Не вдалося завершити сесію." });
-    }
-    res.clearCookie("luti.bo", { path: "/", httpOnly: true, sameSite: "lax", secure: IS_PROD });
-    res.json({ ok: true });
-  });
+  req.session = null;
+  res.json({ ok: true });
 });
 
 app.post("/api/bo/news", requireBoSession, (req, res) => {
@@ -470,7 +440,8 @@ app.listen(PORT, "0.0.0.0", () => {
   if (TRUST_PROXY_ENABLED) {
     console.log(`   Trust proxy: увімкнено (TRUST_PROXY)`);
   }
-  console.log(`   Сесії адмін-панелі (файли): ${SESSION_STORE_DIR}`);
+  console.log(`   Дані клубу: ${DATA_DIR}  |  реєстрації: ${REGISTRATIONS_FILE}`);
+  console.log(`   Адмін-сесія: підписаний cookie (без файлового store на диску).`);
   console.log(`   Прихована адмін-панель: задайте CLUB_ADMIN_PASSWORD і SESSION_SECRET у .env`);
   if (!CLUB_ADMIN_PASSWORD) {
     console.log("⚠️ CLUB_ADMIN_PASSWORD порожній — редагування контенту з панелі недоступне");
