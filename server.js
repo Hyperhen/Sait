@@ -18,9 +18,15 @@ const IS_PROD = NODE_ENV === "production";
 
 const TRUST_PROXY_ENABLED =
   process.env.TRUST_PROXY === "1" || /^true$/i.test(process.env.TRUST_PROXY || "");
+const TRUST_PROXY_DISABLED_EXPLICIT =
+  process.env.TRUST_PROXY === "0" || /^false$/i.test(process.env.TRUST_PROXY || "");
 
-/** За reverse proxy (nginx, Caddy, багато PaaS) — коректні X-Forwarded-Proto / IP. У Vercel зазвичай задайте TRUST_PROXY=1. */
-if (TRUST_PROXY_ENABLED) {
+/**
+ * За TLS-проксі (Vercel, nginx, Caddy…) Node бачить HTTP, але клієнт — HTTPS.
+ * Тоді `req.protocol` має братися з X-Forwarded-Proto, інакше `Secure` cookie мовчки не ставиться (див. cookie-session + «unencrypted connection»).
+ * Якщо production без проксі (TLS напряму на Node), зазвичай теж безпечно; щоб вимкнути: TRUST_PROXY=0
+ */
+if (!TRUST_PROXY_DISABLED_EXPLICIT && (TRUST_PROXY_ENABLED || IS_PROD)) {
   app.set("trust proxy", 1);
 }
 
@@ -437,8 +443,8 @@ app.listen(PORT, "0.0.0.0", () => {
   initRegistrationsFile();
   initClubDataFiles();
   console.log(`\n🏐 Сервер запущено на http://localhost:${PORT}`);
-  if (TRUST_PROXY_ENABLED) {
-    console.log(`   Trust proxy: увімкнено (TRUST_PROXY)`);
+  if (!TRUST_PROXY_DISABLED_EXPLICIT && (TRUST_PROXY_ENABLED || IS_PROD)) {
+    console.log(`   Trust proxy: увімкнено (для HTTPS за проксі; вимкнути: TRUST_PROXY=0)`);
   }
   console.log(`   Дані клубу: ${DATA_DIR}  |  реєстрації: ${REGISTRATIONS_FILE}`);
   console.log(`   Адмін-сесія: підписаний cookie (без файлового store на диску).`);
