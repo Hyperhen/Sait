@@ -8,9 +8,30 @@ const nodemailer = require("nodemailer");
 const cors = require("cors");
 const axios = require("axios");
 const session = require("express-session");
+const FileStoreSession = require("session-file-store")(session);
 const rateLimit = require("express-rate-limit");
 
 const app = express();
+
+const TRUST_PROXY_ENABLED =
+  process.env.TRUST_PROXY === "1" || /^true$/i.test(process.env.TRUST_PROXY || "");
+
+/** Якщо Node за nginx/Caddy/load balancer із HTTPS — часто потрібно для коректної поведінки запитів. */
+if (TRUST_PROXY_ENABLED) {
+  app.set("trust proxy", 1);
+}
+
+const SESSION_STORE_DIR = path.resolve(
+  typeof process.env.SESSION_STORE_PATH === "string" && process.env.SESSION_STORE_PATH.trim() !== ""
+    ? process.env.SESSION_STORE_PATH.trim()
+    : path.join(__dirname, ".sessions")
+);
+
+function ensureSessionStoreDir() {
+  if (!fs.existsSync(SESSION_STORE_DIR)) {
+    fs.mkdirSync(SESSION_STORE_DIR, { recursive: true });
+  }
+}
 
 const PORT = Number.parseInt(process.env.PORT || "", 10) || 3000;
 const NODE_ENV = process.env.NODE_ENV || "development";
@@ -174,14 +195,29 @@ if (IS_PROD && (!SESSION_SECRET || SESSION_SECRET.includes("__dev-session-secret
   process.exit(1);
 }
 
+ensureSessionStoreDir();
+
+/**
+ * Файлове сховище сесій спільне для усіх воркерів процесу (PM2 cluster, кілька реплік на одній машині).
+ * Інакше логін на одному воркері, POST на іншому → 401 «немає сесії».
+ */
+const adminSessionStore = new FileStoreSession({
+  path: SESSION_STORE_DIR,
+  ttl: 14 * 24 * 3600,
+  retries: 0,
+  logFn() {},
+});
+
 app.use(cors());
 app.use(express.json({ limit: "128kb" }));
 app.use(
   session({
     name: "luti.bo",
     secret: SESSION_SECRET || "__dev-session-secret-change-in-env__",
+    store: adminSessionStore,
     resave: false,
     saveUninitialized: false,
+    rolling: true,
     cookie: {
       httpOnly: true,
       sameSite: "lax",
@@ -431,6 +467,10 @@ app.listen(PORT, "0.0.0.0", () => {
   initRegistrationsFile();
   initClubDataFiles();
   console.log(`\n🏐 Сервер запущено на http://localhost:${PORT}`);
+  if (TRUST_PROXY_ENABLED) {
+    console.log(`   Trust proxy: увімкнено (TRUST_PROXY)`);
+  }
+  console.log(`   Сесії адмін-панелі (файли): ${SESSION_STORE_DIR}`);
   console.log(`   Прихована адмін-панель: задайте CLUB_ADMIN_PASSWORD і SESSION_SECRET у .env`);
   if (!CLUB_ADMIN_PASSWORD) {
     console.log("⚠️ CLUB_ADMIN_PASSWORD порожній — редагування контенту з панелі недоступне");
