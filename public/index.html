@@ -14,7 +14,7 @@
 <header class="site-header">
     <div class="site-header__inner">
         <img src="img/logo.png" alt="Лого Люті" class="logo" width="200">
-        <p class="site-header__badge">волейбол · Київ</p>
+        <p class="site-header__badge">волейбол · Чернівці</p>
         <h1>Волейбольний клуб Люті <span class="heading-emoji" aria-hidden="true">🏐</span></h1>
         <p class="site-header__tagline">Офіційний сайт команди</p>
     </div>
@@ -26,8 +26,8 @@
     <div class="trainer-content">
         <div class="trainer-info">
             <p><strong>Ім'я:</strong> Олександра Олександрівна</p>
-            <p><strong>Номер телефону:</strong> +380992988654</p>
-            <p><strong>Телеграм:</strong> @pogoroscopukoza</p>
+            <p> <a href="tel:+380992988654"><strong>Номер телефону:</strong> +38 (099) 298 86 54</a></p>
+            <p><a href="https://t.me/pogoroscopukoza" target="_new"><strong>Телеграм:</strong> @pogoroscopukoza</a></p>
             <div class="social-buttons">
                 <a href="https://www.instagram.com/vc.luti?igsh=NHdjZXRvdmhwODQ2" target="_blank" rel="noopener noreferrer" class="social-btn instagram-btn">📷 Інстаграм клубу</a>
                 <a href="https://www.tiktok.com/@vc.luti?_r=1&_t=ZS-94DDadeAPOG" target="_blank" rel="noopener noreferrer" class="social-btn tiktok-btn">🎵 Тікток клубу</a>
@@ -40,44 +40,6 @@
     <section class="join-section">
         <a href="join.html" class="join-btn">🏐 Вступити в клуб</a>
     </section>
-
-    <section class="form-section club-news">
-        <h2>📰 Новини клубу (тільки для адміністратора)</h2>
-        <form id="club-news-form">
-            <div class="form-group">
-                <label for="club-news-password">Пароль:</label>
-                <input type="password" id="club-news-password" required>
-            </div>
-            <div class="form-group">
-                <label for="club-news-title">Заголовок:</label>
-                <input type="text" id="club-news-title" required>
-            </div>
-            <div class="form-group">
-                <label for="club-news-content">Текст:</label>
-                <textarea id="club-news-content" rows="4" required></textarea>
-            </div>
-            <button type="submit" class="submit-btn">Опублікувати</button>
-        </form>
-    </section>
-
-    <section class="form-section birthdays">
-        <h2>🎂 Дні народження (тільки для адміністратора)</h2>
-        <form id="birthdays-form">
-            <div class="form-group">
-                <label for="birthdays-password">Пароль:</label>
-                <input type="password" id="birthdays-password" required>
-            </div>
-            <div class="form-group">
-                <label for="birthday-name">Ім'я:</label>
-                <input type="text" id="birthday-name" required>
-            </div>
-            <div class="form-group">
-                <label for="birthday-date">Дата народження:</label>
-                <input type="date" id="birthday-date" required>
-            </div>
-            <button type="submit" class="submit-btn">Додати день народження</button>
-        </form>
-    </section>
 </div>
 
 <section class="all-content section-block">
@@ -87,11 +49,11 @@
             <div class="display-grid" id="club-news-display-grid"></div>
         </div>
         <div class="display-section birthdays-display">
-            <h2>🎂 Дні народження</h2>
+            <h2>🎂 Найближчі дні народження</h2>
             <div class="carousel-container">
                 <div class="carousel" id="birthdays-carousel">
                     <div class="carousel-item">
-                        <p class="empty-state">Днів народження немає</p>
+                        <p class="empty-state">Найближчих днів народження немає</p>
                     </div>
                 </div>
                 <button type="button" class="carousel-btn carousel-prev" id="carousel-prev" aria-label="Попереднє день народження">❮</button>
@@ -121,12 +83,80 @@
 </footer>
 
 <script>
-let clubNewsData = JSON.parse(localStorage.getItem('clubNewsData')) || [];
-let birthdaysData = JSON.parse(localStorage.getItem('birthdaysData')) || [];
-const ADMIN_PASSWORD = '56324433'; // змініть на власний секретний пароль
+/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються як на сервері). */
+let clubNewsData = [];
+let birthdaysData = [];
 
 let currentBirthdayIndex = 0;
 let birthdayAutoRotate = null;
+
+function isoCalendarTodayClient(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function addCalendarDaysIsoClient(isoDay, addDays) {
+    const [yy, mm, dd] = isoDay.split("-").map(Number);
+    const x = new Date(yy, mm - 1, dd + addDays);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+}
+
+function normalizeAnniversaryThisYearClient(year, month, day) {
+    const t = new Date(year, month - 1, day);
+    if (t.getMonth() === month - 1) {
+        return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    }
+    const lastFeb = new Date(year, month, 0);
+    return `${year}-${String(month).padStart(2, "0")}-${String(lastFeb.getDate()).padStart(2, "0")}`;
+}
+
+function nextBirthdayIsoFromClient(birthIsoYmd, fromIsoDay) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birthIsoYmd);
+    if (!m) return null;
+    const month = Number(m[2]);
+    const day = Number(m[3]);
+    const fromYear = Number(fromIsoDay.slice(0, 4));
+    let cand = normalizeAnniversaryThisYearClient(fromYear, month, day);
+    if (cand < fromIsoDay) cand = normalizeAnniversaryThisYearClient(fromYear + 1, month, day);
+    return cand;
+}
+
+function filterBirthdaysPublicWindowClient(allEntries, now = new Date()) {
+    const fromIso = isoCalendarTodayClient(now);
+    const allowed = new Set();
+    for (let i = 0; i < 7; i += 1) allowed.add(addCalendarDaysIsoClient(fromIso, i));
+    const out = [];
+    for (let i = 0; i < allEntries.length; i += 1) {
+        const row = allEntries[i];
+        if (!row || typeof row.date !== "string") continue;
+        const next = nextBirthdayIsoFromClient(row.date, fromIso);
+        if (next && allowed.has(next)) out.push(row);
+    }
+    out.sort((a, b) => nextBirthdayIsoFromClient(a.date, fromIso).localeCompare(nextBirthdayIsoFromClient(b.date, fromIso)));
+    return out;
+}
+
+async function loadClubData() {
+    try {
+        const [rNews, rBirth] = await Promise.all([fetch("/api/news"), fetch("/api/birthdays")]);
+        if (rNews.ok && rBirth.ok) {
+            const jNews = await rNews.json();
+            const jBirth = await rBirth.json();
+            clubNewsData = Array.isArray(jNews.news) ? jNews.news : [];
+            birthdaysData = Array.isArray(jBirth.birthdays) ? jBirth.birthdays : [];
+            return;
+        }
+    } catch (_) {
+        /* offline / static mirror */
+    }
+    try {
+        clubNewsData = JSON.parse(localStorage.getItem("clubNewsData")) || [];
+        const rawB = JSON.parse(localStorage.getItem("birthdaysData")) || [];
+        birthdaysData = filterBirthdaysPublicWindowClient(Array.isArray(rawB) ? rawB : []);
+    } catch {
+        clubNewsData = [];
+        birthdaysData = [];
+    }
+}
 
 function displayClubNews() {
     const newsGrid = document.getElementById('club-news-display-grid');
@@ -167,7 +197,7 @@ function displayBirthdays() {
         item.className = 'carousel-item';
         const p = document.createElement('p');
         p.className = 'empty-state';
-        p.textContent = 'Днів народження немає';
+        p.textContent = 'Найближчих днів народження немає';
         item.appendChild(p);
         carousel.appendChild(item);
         currentBirthdayIndex = 0;
@@ -233,51 +263,13 @@ function startBirthdayAutoRotate() {
     }, 5000);
 }
 
-const clubNewsForm = document.getElementById('club-news-form');
-clubNewsForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const pwd = document.getElementById('club-news-password').value;
-    const title = document.getElementById('club-news-title').value;
-    const content = document.getElementById('club-news-content').value;
-    if (pwd !== ADMIN_PASSWORD) {
-        alert('Невірний пароль');
-        return;
-    }
-    if (title && content) {
-        clubNewsData.unshift({ title, content, date: new Date().toLocaleString('uk-UA') });
-        localStorage.setItem('clubNewsData', JSON.stringify(clubNewsData));
-        displayClubNews();
-        this.reset();
-    }
-});
-
-const birthdaysForm = document.getElementById('birthdays-form');
-birthdaysForm.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const pwd = document.getElementById('birthdays-password').value;
-    const name = document.getElementById('birthday-name').value;
-    const date = document.getElementById('birthday-date').value;
-
-    if (pwd !== ADMIN_PASSWORD) {
-        alert('Невірний пароль');
-        return;
-    }
-
-    if (name && date) {
-        birthdaysData.push({ name, date });
-        birthdaysData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-        localStorage.setItem('birthdaysData', JSON.stringify(birthdaysData));
-        displayBirthdays();
-        alert('День народження додано');
-        this.reset();
-    }
-});
-
 document.getElementById('carousel-prev').addEventListener('click', () => moveBirthdayCarousel('prev'));
 document.getElementById('carousel-next').addEventListener('click', () => moveBirthdayCarousel('next'));
 
-displayClubNews();
-displayBirthdays();
+loadClubData().then(() => {
+    displayClubNews();
+    displayBirthdays();
+});
 </script>
 
 </body>

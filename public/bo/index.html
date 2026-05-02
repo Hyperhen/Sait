@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Адмін — Люті</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+
+<header class="site-header site-header--compact">
+    <div class="site-header__inner">
+        <a href="/" class="back-btn">&larr; На головну</a>
+        <p class="site-header__badge">адмін-панель</p>
+        <h1>Волейбольний клуб Люті</h1>
+        <p class="site-header__tagline">Новини та дні народження</p>
+    </div>
+</header>
+
+<main class="site-shell">
+
+<section id="bo-gate" class="section-block">
+    <div class="join-form-section">
+        <h2 class="section-title section-title--center">Вхід</h2>
+        <p class="join-form-section__lead">Пароль перевіряється на сервері. Редактор зʼявиться після входу; достатньо закрити вкладку або браузер, щоб вийти з сесії.</p>
+        <form id="bo-login-form">
+            <div class="form-group">
+                <label for="bo-password">Пароль</label>
+                <input type="password" id="bo-password" name="password" autocomplete="current-password" required>
+            </div>
+            <p id="bo-login-error" class="bo-flash bo-flash--error" hidden></p>
+            <button type="submit" class="submit-btn">Увійти</button>
+        </form>
+    </div>
+</section>
+
+<section id="bo-panel" class="section-block forms-container" hidden aria-hidden="true">
+    <section class="form-section club-news">
+        <h2>📰 Новини клубу</h2>
+        <form id="club-news-form">
+            <div class="form-group">
+                <label for="club-news-title">Заголовок</label>
+                <input type="text" id="club-news-title" required maxlength="200">
+            </div>
+            <div class="form-group">
+                <label for="club-news-content">Текст</label>
+                <textarea id="club-news-content" rows="4" required maxlength="10000"></textarea>
+            </div>
+            <p id="club-news-msg" class="bo-flash" hidden></p>
+            <button type="submit" class="submit-btn">Опублікувати</button>
+        </form>
+    </section>
+
+    <section class="form-section birthdays">
+        <h2>🎂 Дні народження</h2>
+        <form id="birthdays-form">
+            <div class="form-group">
+                <label for="birthday-name">Ім'я</label>
+                <input type="text" id="birthday-name" required maxlength="120">
+            </div>
+            <div class="form-group">
+                <label for="birthday-date">Дата народження</label>
+                <input type="date" id="birthday-date" required>
+            </div>
+            <p id="birthdays-msg" class="bo-flash" hidden></p>
+            <button type="submit" class="submit-btn">Додати день народження</button>
+        </form>
+    </section>
+</section>
+
+</main>
+
+<footer class="site-footer">
+    <p>© 2026 Волейбольний клуб Люті</p>
+</footer>
+
+<script>
+const jsonHeaders = { 'Content-Type': 'application/json' };
+const gate = document.getElementById('bo-gate');
+const panel = document.getElementById('bo-panel');
+const loginErr = document.getElementById('bo-login-error');
+const pwInput = document.getElementById('bo-password');
+
+function showGate() {
+    gate.hidden = false;
+    panel.hidden = true;
+    panel.setAttribute('aria-hidden', 'true');
+    pwInput.value = '';
+    pwInput.focus();
+}
+
+function showPanel() {
+    gate.hidden = true;
+    loginErr.hidden = true;
+    panel.hidden = false;
+    panel.removeAttribute('aria-hidden');
+}
+
+async function refreshSession() {
+    const res = await fetch('/api/bo/session', { credentials: 'same-origin' });
+    if (!res.ok) throw new Error('session');
+    const data = await res.json();
+    if (data.authenticated) showPanel(); else showGate();
+}
+
+document.getElementById('bo-login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginErr.hidden = true;
+    const password = pwInput.value;
+    try {
+        const res = await fetch('/api/bo/login', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+            loginErr.textContent = data.error || 'Помилка входу.';
+            loginErr.hidden = false;
+            return;
+        }
+        pwInput.value = '';
+        showPanel();
+    } catch {
+        loginErr.textContent = 'Звʼязку з сервером немає.';
+        loginErr.hidden = false;
+    }
+});
+
+document.getElementById('club-news-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('club-news-msg');
+    msgEl.hidden = true;
+    const title = document.getElementById('club-news-title').value.trim();
+    const content = document.getElementById('club-news-content').value.trim();
+    const res = await fetch('/api/bo/news', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: jsonHeaders,
+        body: JSON.stringify({ title, content }),
+    });
+    const data = await res.json().catch(() => ({}));
+    msgEl.hidden = false;
+    msgEl.classList.remove('bo-flash--error', 'bo-flash--ok');
+    if (res.ok) {
+        msgEl.classList.add('bo-flash--ok');
+        msgEl.textContent = 'Опубліковано на сайті.';
+        e.target.reset();
+    } else {
+        msgEl.classList.add('bo-flash--error');
+        msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося зберегти.');
+        if (res.status === 401) showGate();
+    }
+});
+
+document.getElementById('birthdays-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('birthdays-msg');
+    msgEl.hidden = true;
+    const name = document.getElementById('birthday-name').value.trim();
+    const date = document.getElementById('birthday-date').value;
+    const res = await fetch('/api/bo/birthdays', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: jsonHeaders,
+        body: JSON.stringify({ name, date }),
+    });
+    const data = await res.json().catch(() => ({}));
+    msgEl.hidden = false;
+    msgEl.classList.remove('bo-flash--error', 'bo-flash--ok');
+    if (res.ok) {
+        msgEl.classList.add('bo-flash--ok');
+        msgEl.textContent = 'Запис додано.';
+        e.target.reset();
+    } else {
+        msgEl.classList.add('bo-flash--error');
+        msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося зберегти.');
+        if (res.status === 401) showGate();
+    }
+});
+
+refreshSession().catch(showGate);
+</script>
+
+</body>
+</html>
