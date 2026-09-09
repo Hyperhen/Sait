@@ -39,36 +39,55 @@ const SMTP_SERVICE = process.env.SMTP_SERVICE || "gmail";
 const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || "";
 const MAIL_TO = process.env.MAIL_TO || MAIL_FROM || "";
 
-// Налаштування multer для завантаження файлів
-const uploadsDir = path.join(__dirname, "public", "uploads");
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+// Налаштування multer для завантаження файлів (лише в розробці)
+const uploadsDir = IS_PROD ? null : path.join(__dirname, "public", "uploads");
+
+let upload = null;
+
+if (!IS_PROD && uploadsDir) {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadsDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(6).toString("hex");
+      const ext = path.extname(file.originalname);
+      const name = path.basename(file.originalname, ext);
+      cb(null, name + "-" + uniqueSuffix + ext);
+    },
+  });
+
+  upload = multer({
+    storage,
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Тільки зображення (JPEG, PNG, WebP, GIF) дозволені"));
+      }
+    },
+  });
+} else if (IS_PROD) {
+  // На Vercel використовуємо memory storage (без збереження на диск)
+  upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+      const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (allowedMimes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error("Тільки зображення (JPEG, PNG, WebP, GIF) дозволені"));
+      }
+    },
+  });
 }
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(6).toString("hex");
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, name + "-" + uniqueSuffix + ext);
-  },
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
-  fileFilter: (req, file, cb) => {
-    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-    if (allowedMimes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Тільки зображення (JPEG, PNG, WebP, GIF) дозволені"));
-    }
-  },
-});
 
 function createMailTransporter() {
   if (!SMTP_USER || !SMTP_PASS) {
@@ -391,18 +410,23 @@ app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req,
 
     const { title, description } = req.body || {};
     if (typeof title !== "string" || title.trim().length < 1 || title.length > 200) {
-      fs.unlinkSync(req.file.path);
       return res.status(400).json({ error: "Назва: 1–200 символів" });
     }
 
     const desc = typeof description === "string" ? description.trim() : "";
 
-    await clubStore.addPhoto(title.trim(), desc, req.file.filename);
-    res.json({ ok: true, filename: req.file.filename });
-  } catch (e) {
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
+    // На Vercel файл зберігаємо як Base64 у БД
+    if (IS_PROD) {
+      const base64 = req.file.buffer.toString("base64");
+      const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
+      await clubStore.addPhoto(title.trim(), desc, imageUrl);
+    } else {
+      // Локально — звичайне завантаження
+      await clubStore.addPhoto(title.trim(), desc, req.file.filename);
     }
+
+    res.json({ ok: true, filename: req.file.filename || "uploaded" });
+  } catch (e) {
     next(e);
   }
 });
@@ -574,5 +598,9 @@ app.listen(PORT, "0.0.0.0", () => {
   } else {
     console.log("✉️ Email: не налаштовано (.env)");
   }
-  console.log(`📸 Галерея фотографій: ${uploadsDir}`);
+  if (IS_PROD) {
+    console.log("📸 Галерея фотографій: зберігаються в MongoDB");
+  } else {
+    console.log(`📸 Галерея фотографій: ${uploadsDir}`);
+  }
 });
