@@ -9,6 +9,7 @@ const cors = require("cors");
 const axios = require("axios");
 const cookieSession = require("cookie-session");
 const rateLimit = require("express-rate-limit");
+const multer = require("multer");
 const clubStore = require("./lib/clubStore");
 
 const app = express();
@@ -22,11 +23,6 @@ const TRUST_PROXY_ENABLED =
 const TRUST_PROXY_DISABLED_EXPLICIT =
   process.env.TRUST_PROXY === "0" || /^false$/i.test(process.env.TRUST_PROXY || "");
 
-/**
- * За TLS-проксі (Vercel, nginx, Caddy…) Node бачить HTTP, але клієнт — HTTPS.
- * Тоді `req.protocol` має братися з X-Forwarded-Proto, інакше `Secure` cookie мовчки не ставиться (див. cookie-session + «unencrypted connection»).
- * Якщо production без проксі (TLS напряму на Node), зазвичай теж безпечно; щоб вимкнути: TRUST_PROXY=0
- */
 if (!TRUST_PROXY_DISABLED_EXPLICIT && (TRUST_PROXY_ENABLED || IS_PROD)) {
   app.set("trust proxy", 1);
 }
@@ -43,6 +39,37 @@ const SMTP_SERVICE = process.env.SMTP_SERVICE || "gmail";
 const MAIL_FROM = process.env.MAIL_FROM || SMTP_USER || "";
 const MAIL_TO = process.env.MAIL_TO || MAIL_FROM || "";
 
+// Налаштування multer для завантаження файлів
+const uploadsDir = path.join(__dirname, "public", "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + crypto.randomBytes(6).toString("hex");
+    const ext = path.extname(file.originalname);
+    const name = path.basename(file.originalname, ext);
+    cb(null, name + "-" + uniqueSuffix + ext);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+  fileFilter: (req, file, cb) => {
+    const allowedMimes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (allowedMimes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Тільки зображення (JPEG, PNG, WebP, GIF) дозволені"));
+    }
+  },
+});
+
 function createMailTransporter() {
   if (!SMTP_USER || !SMTP_PASS) {
     return null;
@@ -58,7 +85,6 @@ function createMailTransporter() {
 
 const mailTransporter = createMailTransporter();
 
-/** SHA-256 fixed-length buffers for timing-safe password compare (does not weaken short passwords). */
 function passwordDigest(plainText) {
   return crypto.createHash("sha256").update(String(plainText), "utf8").digest();
 }
@@ -85,6 +111,9 @@ function initClubDataFilesFs() {
   if (!fs.existsSync(clubStore.CLUB_BIRTHDAYS_FILE)) {
     fs.writeFileSync(clubStore.CLUB_BIRTHDAYS_FILE, JSON.stringify([], null, 2), "utf8");
   }
+  if (!fs.existsSync(clubStore.PHOTOS_FILE)) {
+    fs.writeFileSync(clubStore.PHOTOS_FILE, JSON.stringify([], null, 2), "utf8");
+  }
 }
 
 function initRegistrationsFileFs() {
@@ -105,7 +134,6 @@ function birthdayEntryValid(name, dateStr) {
   return Number.isFinite(t);
 }
 
-/** YYYY-MM-DD for “today” in the server/JVM-local calendar (надійний розрахунок: TZ=Europe/Kyiv у systemd/Docker). */
 function isoCalendarToday(now = new Date()) {
   const y = now.getFullYear();
   const m = now.getMonth() + 1;
@@ -122,7 +150,6 @@ function addCalendarDaysIso(isoDay, addDays) {
   return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
 }
 
-/** Повернути календарний MM-DD цього року (29 лют для невисокостного року → останній день лютого). */
 function normalizeAnniversaryThisYear(year, month, day) {
   const t = new Date(year, month - 1, day);
   if (t.getMonth() === month - 1) {
@@ -143,7 +170,6 @@ function nextBirthdayIsoFrom(birthIsoYmd, fromIsoDay) {
   return cand;
 }
 
-/** Публічний сайт: лише збіг наступної дати святкування у вікні [сьогодні … +6 днів]. */
 function filterBirthdaysPublicWindow(allEntries, now = new Date()) {
   const fromIso = isoCalendarToday(now);
   const allowed = new Set();
@@ -167,9 +193,6 @@ if (IS_PROD && (!SESSION_SECRET || SESSION_SECRET.includes("__dev-session-secret
   process.exit(1);
 }
 
-/**
- * Підписана сесія в cookie (без запису на диск) — потрібно для Vercel / serverless і стабільніше за MemoryStore при кількох інстансах.
- */
 app.use(cors());
 app.use(express.json({ limit: "128kb" }));
 app.use(
@@ -182,13 +205,12 @@ app.use(
   })
 );
 
-/** Limit brute-force on login: per IP within a time window */
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: IS_PROD ? 12 : 60,
   standardHeaders: true,
   legacyHeaders: false,
-  handler: (_req, res /* , _next, _options */) => {
+  handler: (_req, res) => {
     res.status(429).json({
       error: "Забагато спроб входу з цієї мережі. Спробуйте через ~15 хв.",
     });
@@ -337,6 +359,64 @@ app.get("/api/birthdays", async (req, res, next) => {
   try {
     const all = await clubStore.getBirthdaysWithIdsSorted();
     res.json({ birthdays: filterBirthdaysPublicWindow(all) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// 📸 Галерея фотографій
+app.get("/api/photos", async (req, res, next) => {
+  try {
+    const photos = await clubStore.getPhotosPublic();
+    res.json({ photos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.get("/api/bo/photos", requireBoSession, async (req, res, next) => {
+  try {
+    const photos = await clubStore.getPhotosWithIds();
+    res.json({ photos });
+  } catch (e) {
+    next(e);
+  }
+});
+
+app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Файл не завантажено" });
+    }
+
+    const { title, description } = req.body || {};
+    if (typeof title !== "string" || title.trim().length < 1 || title.length > 200) {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: "Назва: 1–200 символів" });
+    }
+
+    const desc = typeof description === "string" ? description.trim() : "";
+
+    await clubStore.addPhoto(title.trim(), desc, req.file.filename);
+    res.json({ ok: true, filename: req.file.filename });
+  } catch (e) {
+    if (req.file) {
+      fs.unlinkSync(req.file.path);
+    }
+    next(e);
+  }
+});
+
+app.delete("/api/bo/photos/:id", requireBoSession, async (req, res, next) => {
+  try {
+    const result = await clubStore.deletePhotoById(req.params.id);
+    if (result.reason === "bad_id") {
+      return res.status(400).json({ error: "Некоректний ідентифікатор" });
+    }
+    if (result.reason === "not_found") {
+      return res.status(404).json({ error: "Фото не знайдено" });
+    }
+    res.json({ ok: true });
   } catch (e) {
     next(e);
   }
@@ -494,4 +574,5 @@ app.listen(PORT, "0.0.0.0", () => {
   } else {
     console.log("✉️ Email: не налаштовано (.env)");
   }
+  console.log(`📸 Галерея фотографій: ${uploadsDir}`);
 });
