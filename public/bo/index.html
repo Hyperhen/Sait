@@ -8,6 +8,71 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../style.css">
+    <style>
+        .gallery-preview {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .gallery-item {
+            position: relative;
+            border-radius: 6px;
+            overflow: hidden;
+            background: #f0f0f0;
+        }
+        .gallery-item img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            display: block;
+        }
+        .gallery-item__delete {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            width: 28px;
+            height: 28px;
+            padding: 0;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .gallery-item__delete:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .file-input-label {
+            display: block;
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .file-input-label:hover {
+            background: #efefef;
+            border-color: #999;
+        }
+    </style>
 </head>
 <body>
 
@@ -25,7 +90,7 @@
 <section id="bo-gate" class="section-block">
     <div class="join-form-section">
         <h2 class="section-title section-title--center">Вхід</h2>
-        <p class="join-form-section__lead">Пароль перевіряється на сервері. Редактор зʼявиться після входу; достатньо закрити вкладку або браузер, щоб вийти з сесії.</p>
+        <p class="join-form-section__lead">Пароль перевіряється на сервері. Редактор зʼявиться після входу; достатньо закрити[...]
         <form id="bo-login-form">
             <div class="form-group">
                 <label for="bo-password">Пароль</label>
@@ -73,6 +138,27 @@
             <button type="submit" class="submit-btn">Додати день народження</button>
         </form>
     </section>
+
+    <section class="form-section gallery bo-manage-block">
+        <h2>🖼️ Галерея фото</h2>
+        <div id="bo-gallery-list" class="gallery-preview" aria-live="polite"></div>
+        <h3 class="bo-form-subtitle">Завантажити фото</h3>
+        <form id="gallery-form">
+            <div class="form-group">
+                <label for="gallery-file">Виберіть файл</label>
+                <div class="file-input-wrapper">
+                    <input type="file" id="gallery-file" name="photo" accept="image/*" required>
+                    <label for="gallery-file" class="file-input-label">Натисніть щоб вибрати файл або перетягніть фото сюди</label>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="gallery-description">Опис (необов'язково)</label>
+                <input type="text" id="gallery-description" maxlength="200" placeholder="Короткий опис фото">
+            </div>
+            <p id="gallery-msg" class="bo-flash" hidden></p>
+            <button type="submit" class="submit-btn">Завантажити</button>
+        </form>
+    </section>
 </section>
 
 </main>
@@ -89,6 +175,7 @@ const loginErr = document.getElementById('bo-login-error');
 const pwInput = document.getElementById('bo-password');
 const boNewsList = document.getElementById('bo-news-list');
 const boBirthdaysList = document.getElementById('bo-birthdays-list');
+const boGalleryList = document.getElementById('bo-gallery-list');
 
 function truncateText(text, max) {
     const s = String(text || '');
@@ -174,24 +261,55 @@ async function renderBoBirthdaysList(list) {
     });
 }
 
+async function renderBoGalleryList(items) {
+    boGalleryList.replaceChildren();
+    if (!Array.isArray(items) || items.length === 0) {
+        const p = document.createElement('p');
+        p.className = 'empty-state bo-list-empty';
+        p.textContent = 'Немає фото';
+        boGalleryList.appendChild(p);
+        return;
+    }
+    items.forEach((item) => {
+        const div = document.createElement('div');
+        div.className = 'gallery-item';
+        const img = document.createElement('img');
+        img.src = `/api/gallery/${encodeURIComponent(item.id)}`;
+        img.alt = item.description || 'Фото';
+        img.loading = 'lazy';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'gallery-item__delete';
+        btn.textContent = '✕';
+        btn.dataset.deletePhotoId = item.id;
+        btn.title = 'Видалити фото';
+        div.append(img, btn);
+        boGalleryList.appendChild(div);
+    });
+}
+
 async function loadBoLists() {
-    const [rn, rb] = await Promise.all([
+    const [rn, rb, rg] = await Promise.all([
         fetch('/api/bo/news', { credentials: 'same-origin' }),
         fetch('/api/bo/birthdays', { credentials: 'same-origin' }),
+        fetch('/api/bo/gallery', { credentials: 'same-origin' }),
     ]);
-    if (rn.status === 401 || rb.status === 401) {
+    if (rn.status === 401 || rb.status === 401 || rg.status === 401) {
         showGate();
         return false;
     }
-    if (!rn.ok || !rb.ok) {
+    if (!rn.ok || !rb.ok || !rg.ok) {
         renderBoNewsList([]);
         renderBoBirthdaysList([]);
+        renderBoGalleryList([]);
         return false;
     }
     const jn = await rn.json();
     const jb = await rb.json();
+    const jg = await rg.json();
     await renderBoNewsList(jn.news || []);
     await renderBoBirthdaysList(jb.birthdays || []);
+    await renderBoGalleryList(jg.gallery || []);
     return true;
 }
 
@@ -230,6 +348,23 @@ document.getElementById('bo-birthdays-list').addEventListener('click', async (ev
     const id = btn.getAttribute('data-delete-birthday-id');
     if (!id || !window.confirm('Видалити цей день народження?')) return;
     const res = await fetch(`/api/bo/birthdays/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
+    if (res.status === 401) {
+        showGate();
+        return;
+    }
+    if (!res.ok) {
+        alert('Не вдалося видалити.');
+        return;
+    }
+    await loadBoLists();
+});
+
+document.getElementById('bo-gallery-list').addEventListener('click', async (ev) => {
+    const btn = ev.target.closest('button[data-delete-photo-id]');
+    if (!btn) return;
+    const id = btn.getAttribute('data-delete-photo-id');
+    if (!id || !window.confirm('Видалити це фото?')) return;
+    const res = await fetch(`/api/bo/gallery/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
     if (res.status === 401) {
         showGate();
         return;
@@ -332,6 +467,45 @@ document.getElementById('birthdays-form').addEventListener('submit', async (e) =
     } else {
         msgEl.classList.add('bo-flash--error');
         msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося зберегти.');
+        if (res.status === 401) showGate();
+    }
+});
+
+document.getElementById('gallery-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msgEl = document.getElementById('gallery-msg');
+    msgEl.hidden = true;
+    const fileInput = document.getElementById('gallery-file');
+    const descInput = document.getElementById('gallery-description');
+    
+    const file = fileInput.files[0];
+    if (!file) {
+        msgEl.classList.add('bo-flash--error');
+        msgEl.textContent = 'Виберіть файл.';
+        msgEl.hidden = false;
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('photo', file);
+    formData.append('description', descInput.value.trim());
+
+    const res = await fetch('/api/bo/gallery', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData,
+    });
+    const data = await res.json().catch(() => ({}));
+    msgEl.hidden = false;
+    msgEl.classList.remove('bo-flash--error', 'bo-flash--ok');
+    if (res.ok) {
+        msgEl.classList.add('bo-flash--ok');
+        msgEl.textContent = 'Фото завантажено.';
+        e.target.reset();
+        await loadBoLists();
+    } else {
+        msgEl.classList.add('bo-flash--error');
+        msgEl.textContent = data.error === 'Unauthorized' ? 'Сесію закінчено — увійдіть знову.' : (data.error || 'Не вдалося завантажити.');
         if (res.status === 401) showGate();
     }
 });
