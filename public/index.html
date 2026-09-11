@@ -42,6 +42,11 @@
     </section>
 </div>
 
+<section class="gallery section-block">
+    <h2 class="section-title">📸 Галерея фото клубу</h2>
+    <div class="gallery-grid" id="gallery-grid"></div>
+</section>
+
 <section class="all-content section-block">
     <div class="content-display">
         <div class="display-section club-news-display">
@@ -83,9 +88,10 @@
 </footer>
 
 <script>
-/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються як на сервері). */
+/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються я[...]
 let clubNewsData = [];
 let birthdaysData = [];
+let galleryData = [];
 
 let currentBirthdayIndex = 0;
 let birthdayAutoRotate = null;
@@ -137,12 +143,18 @@ function filterBirthdaysPublicWindowClient(allEntries, now = new Date()) {
 
 async function loadClubData() {
     try {
-        const [rNews, rBirth] = await Promise.all([fetch("/api/news"), fetch("/api/birthdays")]);
-        if (rNews.ok && rBirth.ok) {
+        const [rNews, rBirth, rGallery] = await Promise.all([
+            fetch("/api/news"), 
+            fetch("/api/birthdays"),
+            fetch("/api/gallery")
+        ]);
+        if (rNews.ok && rBirth.ok && rGallery.ok) {
             const jNews = await rNews.json();
             const jBirth = await rBirth.json();
+            const jGallery = await rGallery.json();
             clubNewsData = Array.isArray(jNews.news) ? jNews.news : [];
             birthdaysData = Array.isArray(jBirth.birthdays) ? jBirth.birthdays : [];
+            galleryData = Array.isArray(jGallery.gallery) ? jGallery.gallery : [];
             return;
         }
     } catch (_) {
@@ -152,10 +164,39 @@ async function loadClubData() {
         clubNewsData = JSON.parse(localStorage.getItem("clubNewsData")) || [];
         const rawB = JSON.parse(localStorage.getItem("birthdaysData")) || [];
         birthdaysData = filterBirthdaysPublicWindowClient(Array.isArray(rawB) ? rawB : []);
+        galleryData = JSON.parse(localStorage.getItem("galleryData")) || [];
     } catch {
         clubNewsData = [];
         birthdaysData = [];
+        galleryData = [];
     }
+}
+
+function displayGallery() {
+    const galleryGrid = document.getElementById('gallery-grid');
+    galleryGrid.replaceChildren();
+    
+    if (galleryData.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'gallery-empty';
+        const p = document.createElement('p');
+        p.className = 'empty-state';
+        p.textContent = 'Фото немає';
+        emptyDiv.appendChild(p);
+        galleryGrid.appendChild(emptyDiv);
+        return;
+    }
+    
+    galleryData.forEach((photo, index) => {
+        const photoItem = document.createElement('div');
+        photoItem.className = 'gallery-item';
+        const img = document.createElement('img');
+        img.src = photo.url;
+        img.alt = photo.alt || `Фото ${index + 1}`;
+        img.loading = 'lazy';
+        photoItem.appendChild(img);
+        galleryGrid.appendChild(photoItem);
+    });
 }
 
 function displayClubNews() {
@@ -269,6 +310,7 @@ document.getElementById('carousel-next').addEventListener('click', () => moveBir
 loadClubData().then(() => {
     displayClubNews();
     displayBirthdays();
+    displayGallery();
 });
 </script>
 
