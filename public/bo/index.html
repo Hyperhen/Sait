@@ -90,7 +90,7 @@
 <section id="bo-gate" class="section-block">
     <div class="join-form-section">
         <h2 class="section-title section-title--center">Вхід</h2>
-        <p class="join-form-section__lead">Пароль перевіряється на сервері. Редактор зʼявиться після входу; достатньо закрити[...]
+        <p class="join-form-section__lead">Пароль перевіряється на сервері. Редактор зʼявиться після входу; достатньо закрити вкладку щоб вийти.</p>
         <form id="bo-login-form">
             <div class="form-group">
                 <label for="bo-password">Пароль</label>
@@ -147,13 +147,17 @@
             <div class="form-group">
                 <label for="gallery-file">Виберіть файл</label>
                 <div class="file-input-wrapper">
-                    <input type="file" id="gallery-file" name="photo" accept="image/*" required>
+                    <input type="file" id="gallery-file" name="image" accept="image/*" required>
                     <label for="gallery-file" class="file-input-label">Натисніть щоб вибрати файл або перетягніть фото сюди</label>
                 </div>
             </div>
             <div class="form-group">
+                <label for="gallery-title">Назва фото</label>
+                <input type="text" id="gallery-title" maxlength="200" placeholder="Короткий опис фото" required>
+            </div>
+            <div class="form-group">
                 <label for="gallery-description">Опис (необов'язково)</label>
-                <input type="text" id="gallery-description" maxlength="200" placeholder="Короткий опис фото">
+                <input type="text" id="gallery-description" maxlength="1000" placeholder="Детальний опис фото">
             </div>
             <p id="gallery-msg" class="bo-flash" hidden></p>
             <button type="submit" class="submit-btn">Завантажити</button>
@@ -274,8 +278,8 @@ async function renderBoGalleryList(items) {
         const div = document.createElement('div');
         div.className = 'gallery-item';
         const img = document.createElement('img');
-        img.src = `/api/gallery/${encodeURIComponent(item.id)}`;
-        img.alt = item.description || 'Фото';
+        img.src = item.imageUrl;
+        img.alt = item.title || 'Фото';
         img.loading = 'lazy';
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -292,7 +296,7 @@ async function loadBoLists() {
     const [rn, rb, rg] = await Promise.all([
         fetch('/api/bo/news', { credentials: 'same-origin' }),
         fetch('/api/bo/birthdays', { credentials: 'same-origin' }),
-        fetch('/api/bo/gallery', { credentials: 'same-origin' }),
+        fetch('/api/bo/photos', { credentials: 'same-origin' }),
     ]);
     if (rn.status === 401 || rb.status === 401 || rg.status === 401) {
         showGate();
@@ -309,7 +313,7 @@ async function loadBoLists() {
     const jg = await rg.json();
     await renderBoNewsList(jn.news || []);
     await renderBoBirthdaysList(jb.birthdays || []);
-    await renderBoGalleryList(jg.gallery || []);
+    await renderBoGalleryList(jg.photos || []);
     return true;
 }
 
@@ -364,7 +368,7 @@ document.getElementById('bo-gallery-list').addEventListener('click', async (ev) 
     if (!btn) return;
     const id = btn.getAttribute('data-delete-photo-id');
     if (!id || !window.confirm('Видалити це фото?')) return;
-    const res = await fetch(`/api/bo/gallery/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
+    const res = await fetch(`/api/bo/photos/${encodeURIComponent(id)}`, { method: 'DELETE', credentials: 'same-origin' });
     if (res.status === 401) {
         showGate();
         return;
@@ -476,6 +480,7 @@ document.getElementById('gallery-form').addEventListener('submit', async (e) => 
     const msgEl = document.getElementById('gallery-msg');
     msgEl.hidden = true;
     const fileInput = document.getElementById('gallery-file');
+    const titleInput = document.getElementById('gallery-title');
     const descInput = document.getElementById('gallery-description');
     
     const file = fileInput.files[0];
@@ -487,10 +492,11 @@ document.getElementById('gallery-form').addEventListener('submit', async (e) => 
     }
 
     const formData = new FormData();
-    formData.append('photo', file);
+    formData.append('image', file);
+    formData.append('title', titleInput.value.trim());
     formData.append('description', descInput.value.trim());
 
-    const res = await fetch('/api/bo/gallery', {
+    const res = await fetch('/api/bo/photos', {
         method: 'POST',
         credentials: 'same-origin',
         body: formData,
