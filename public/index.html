@@ -88,7 +88,7 @@
 </footer>
 
 <script>
-/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються я[...]
+/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються) */
 let clubNewsData = [];
 let birthdaysData = [];
 let galleryData = [];
@@ -143,18 +143,18 @@ function filterBirthdaysPublicWindowClient(allEntries, now = new Date()) {
 
 async function loadClubData() {
     try {
-        const [rNews, rBirth, rGallery] = await Promise.all([
+        const [rNews, rBirth, rPhotos] = await Promise.all([
             fetch("/api/news"), 
             fetch("/api/birthdays"),
-            fetch("/api/gallery")
+            fetch("/api/photos")
         ]);
-        if (rNews.ok && rBirth.ok && rGallery.ok) {
+        if (rNews.ok && rBirth.ok && rPhotos.ok) {
             const jNews = await rNews.json();
             const jBirth = await rBirth.json();
-            const jGallery = await rGallery.json();
+            const jPhotos = await rPhotos.json();
             clubNewsData = Array.isArray(jNews.news) ? jNews.news : [];
             birthdaysData = Array.isArray(jBirth.birthdays) ? jBirth.birthdays : [];
-            galleryData = Array.isArray(jGallery.gallery) ? jGallery.gallery : [];
+            galleryData = Array.isArray(jPhotos.photos) ? jPhotos.photos : [];
             return;
         }
     } catch (_) {
@@ -191,8 +191,8 @@ function displayGallery() {
         const photoItem = document.createElement('div');
         photoItem.className = 'gallery-item';
         const img = document.createElement('img');
-        img.src = photo.url;
-        img.alt = photo.alt || `Фото ${index + 1}`;
+        img.src = photo.imageUrl;
+        img.alt = photo.title || `Фото ${index + 1}`;
         img.loading = 'lazy';
         photoItem.appendChild(img);
         galleryGrid.appendChild(photoItem);
