@@ -175,7 +175,7 @@ async function loadClubData() {
 function displayGallery() {
     const galleryGrid = document.getElementById('gallery-grid');
     galleryGrid.replaceChildren();
-    
+
     if (galleryData.length === 0) {
         const emptyDiv = document.createElement('div');
         emptyDiv.className = 'gallery-empty';
@@ -186,6 +186,25 @@ function displayGallery() {
         galleryGrid.appendChild(emptyDiv);
         return;
     }
+
+    galleryData.forEach((photo, index) => {
+        const photoItem = document.createElement('div');
+        photoItem.className = 'gallery-item';
+        const img = document.createElement('img');
+        img.src = photo.imageUrl;
+        img.alt = photo.title || `Фото ${index + 1}`;
+        img.loading = 'lazy';
+
+        // Заглушка, якщо фото не завантажилося
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = 'img/logo.png';
+        };
+
+        photoItem.appendChild(img);
+        galleryGrid.appendChild(photoItem);
+    });
+}
     
     galleryData.forEach((photo, index) => {
         const photoItem = document.createElement('div');
