@@ -190,11 +190,39 @@ function displayGallery() {
     galleryData.forEach((photo, index) => {
         const photoItem = document.createElement('div');
         photoItem.className = 'gallery-item';
+
+        // Формуємо правильний шлях до зображення
+        let src = photo.imageUrl || photo.filename || '';
+        if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('/')) {
+            src = '/uploads/' + src;
+        }
+
         const img = document.createElement('img');
-        img.src = photo.imageUrl;
+        img.src = src;
         img.alt = photo.title || `Фото ${index + 1}`;
         img.loading = 'lazy';
+
+        // Опціонально: підпис до фото
+        const caption = document.createElement('div');
+        caption.className = 'gallery-caption';
+        
+        if (photo.title) {
+            const h4 = document.createElement('h4');
+            h4.textContent = photo.title;
+            caption.appendChild(h4);
+        }
+
+        if (photo.description) {
+            const p = document.createElement('p');
+            p.textContent = photo.description;
+            caption.appendChild(p);
+        }
+
         photoItem.appendChild(img);
+        if (photo.title || photo.description) {
+            photoItem.appendChild(caption);
+        }
+
         galleryGrid.appendChild(photoItem);
     });
 }
