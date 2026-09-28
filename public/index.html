@@ -190,12 +190,40 @@ function displayGallery() {
     galleryData.forEach((photo, index) => {
         const photoItem = document.createElement('div');
         photoItem.className = 'gallery-item';
+        const img = document.createElement('img');
+        img.src = photo.imageUrl;
+        img.alt = photo.title || `Фото ${index + 1}`;
+        img.loading = 'lazy';
+        photoItem.appendChild(img);
+        galleryGrid.appendChild(photoItem);
+    });
+```[cite: 2]
 
-        // Формуємо правильний шлях до зображення
-        let src = photo.imageUrl || photo.filename || '';
-        if (src && !src.startsWith('http') && !src.startsWith('data:') && !src.startsWith('/')) {
-            src = '/uploads/' + src;
-        }
+---
+
+### Що скопіювати та вставити замість нього:
+
+Замініть весь наведений вище блок на цей код:
+
+```javascript
+    galleryData.forEach((photo, index) => {
+        const photoItem = document.createElement('div');
+        photoItem.className = 'gallery-item';
+        const img = document.createElement('img');
+        img.src = photo.imageUrl;
+        img.alt = photo.title || `Фото ${index + 1}`;
+        img.loading = 'lazy';
+
+        // Автоматично підставляє логотип, якщо зображення за посиланням не знайдено
+        img.onerror = function() {
+            this.onerror = null;
+            this.src = 'img/logo.png';
+        };
+
+        photoItem.appendChild(img);
+        galleryGrid.appendChild(photoItem);
+    });
+```[cite: 2]
 
         const img = document.createElement('img');
         img.src = src;
