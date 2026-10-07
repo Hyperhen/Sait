@@ -75,9 +75,9 @@
             <tr><th>День</th><th>Час тренування</th><th>Час тренування</th></tr>
         </thead>
         <tbody>
-            <tr><td>Вівторок</td><td>Молодша група 16:00 - 18:00</td><td>Старша група 18:00 - 20:00</td>
+            <tr><td>Вівторок</td><td>Молодша група 16:00 - 18:00</td><td>Старша група 18:00 - 20:00</td></tr>
             <tr><td>Четвер</td><td>Молодша група 16:00 - 18:00</td><td>Старша група 18:00 - 20:00</td></tr>
-            <tr><td>Субота</td><td>Молодша група 16:00 - 18:00</td><td></td>Старша група 18:00 - 20:00</td></tr>
+            <tr><td>Субота</td><td>Молодша група 16:00 - 18:00</td><td>Старша група 18:00 - 20:00</td></tr>
         </tbody>
     </table>
 </section>
@@ -88,7 +88,6 @@
 </footer>
 
 <script>
-/** Публічна сторінка читає дані з API; коли сервера немає — резерв із localStorage (дні народження теж фільтруються) */
 let clubNewsData = [];
 let birthdaysData = [];
 let galleryData = [];
@@ -130,6 +129,7 @@ function filterBirthdaysPublicWindowClient(allEntries, now = new Date()) {
     const fromIso = isoCalendarTodayClient(now);
     const allowed = new Set();
     for (let i = 0; i < 7; i += 1) allowed.add(addCalendarDaysIsoClient(fromIso, i));
+
     const out = [];
     for (let i = 0; i < allEntries.length; i += 1) {
         const row = allEntries[i];
@@ -137,34 +137,61 @@ function filterBirthdaysPublicWindowClient(allEntries, now = new Date()) {
         const next = nextBirthdayIsoFromClient(row.date, fromIso);
         if (next && allowed.has(next)) out.push(row);
     }
-    out.sort((a, b) => nextBirthdayIsoFromClient(a.date, fromIso).localeCompare(nextBirthdayIsoFromClient(b.date, fromIso)));
+
+    out.sort((a, b) => {
+        const aNext = nextBirthdayIsoFromClient(a.date, fromIso);
+        const bNext = nextBirthdayIsoFromClient(b.date, fromIso);
+        return (aNext || "").localeCompare(bNext || "");
+    });
     return out;
+}
+
+async function safeJsonFetch(response) {
+    if (!response || !response.ok) return null;
+
+    const contentType = (response.headers.get("content-type") || "").toLowerCase();
+    if (!contentType.includes("application/json")) return null;
+
+    const text = await response.text();
+    if (!text) return null;
+
+    try {
+        return JSON.parse(text);
+    } catch {
+        return null;
+    }
 }
 
 async function loadClubData() {
     try {
         const [rNews, rBirth, rPhotos] = await Promise.all([
-            fetch("/api/news"), 
-            fetch("/api/birthdays"),
-            fetch("/api/photos")
+            fetch("./api/news"),
+            fetch("./api/birthdays"),
+            fetch("./api/photos")
         ]);
-        if (rNews.ok && rBirth.ok && rPhotos.ok) {
-            const jNews = await rNews.json();
-            const jBirth = await rBirth.json();
-            const jPhotos = await rPhotos.json();
+
+        const jNews = await safeJsonFetch(rNews) || {};
+        const jBirth = await safeJsonFetch(rBirth) || {};
+        const jPhotos = await safeJsonFetch(rPhotos) || {};
+
+        if (jNews && jBirth && jPhotos) {
             clubNewsData = Array.isArray(jNews.news) ? jNews.news : [];
             birthdaysData = Array.isArray(jBirth.birthdays) ? jBirth.birthdays : [];
             galleryData = Array.isArray(jPhotos.photos) ? jPhotos.photos : [];
             return;
         }
     } catch (_) {
-        /* offline / static mirror */
+        // Offline / static fallback below
     }
+
     try {
-        clubNewsData = JSON.parse(localStorage.getItem("clubNewsData")) || [];
-        const rawB = JSON.parse(localStorage.getItem("birthdaysData")) || [];
-        birthdaysData = filterBirthdaysPublicWindowClient(Array.isArray(rawB) ? rawB : []);
-        galleryData = JSON.parse(localStorage.getItem("galleryData")) || [];
+        const storedNews = JSON.parse(localStorage.getItem("clubNewsData") || "null");
+        const storedBirthdays = JSON.parse(localStorage.getItem("birthdaysData") || "null");
+        const storedGallery = JSON.parse(localStorage.getItem("galleryData") || "null");
+
+        clubNewsData = Array.isArray(storedNews) ? storedNews : [];
+        birthdaysData = filterBirthdaysPublicWindowClient(Array.isArray(storedBirthdays) ? storedBirthdays : []);
+        galleryData = Array.isArray(storedGallery) ? storedGallery : [];
     } catch {
         clubNewsData = [];
         birthdaysData = [];
@@ -190,83 +217,35 @@ function displayGallery() {
     galleryData.forEach((photo, index) => {
         const photoItem = document.createElement('div');
         photoItem.className = 'gallery-item';
+
         const img = document.createElement('img');
         img.src = photo.imageUrl;
         img.alt = photo.title || `Фото ${index + 1}`;
         img.loading = 'lazy';
 
-        // Заглушка, якщо фото не завантажилося
-        img.onerror = function() {
+        img.onerror = function () {
             this.onerror = null;
             this.src = 'img/logo.png';
         };
 
         photoItem.appendChild(img);
-        galleryGrid.appendChild(photoItem);
-    });
-}
-    
-    galleryData.forEach((photo, index) => {
-        const photoItem = document.createElement('div');
-        photoItem.className = 'gallery-item';
-        const img = document.createElement('img');
-        img.src = photo.imageUrl;
-        img.alt = photo.title || `Фото ${index + 1}`;
-        img.loading = 'lazy';
-        photoItem.appendChild(img);
-        galleryGrid.appendChild(photoItem);
-    });
-```[cite: 2]
 
----
-
-### Що скопіювати та вставити замість нього:
-
-Замініть весь наведений вище блок на цей код:
-
-```javascript
-    galleryData.forEach((photo, index) => {
-        const photoItem = document.createElement('div');
-        photoItem.className = 'gallery-item';
-        const img = document.createElement('img');
-        img.src = photo.imageUrl;
-        img.alt = photo.title || `Фото ${index + 1}`;
-        img.loading = 'lazy';
-
-        // Автоматично підставляє логотип, якщо зображення за посиланням не знайдено
-        img.onerror = function() {
-            this.onerror = null;
-            this.src = 'img/logo.png';
-        };
-
-        photoItem.appendChild(img);
-        galleryGrid.appendChild(photoItem);
-    });
-```[cite: 2]
-
-        const img = document.createElement('img');
-        img.src = src;
-        img.alt = photo.title || `Фото ${index + 1}`;
-        img.loading = 'lazy';
-
-        // Опціонально: підпис до фото
-        const caption = document.createElement('div');
-        caption.className = 'gallery-caption';
-        
-        if (photo.title) {
-            const h4 = document.createElement('h4');
-            h4.textContent = photo.title;
-            caption.appendChild(h4);
-        }
-
-        if (photo.description) {
-            const p = document.createElement('p');
-            p.textContent = photo.description;
-            caption.appendChild(p);
-        }
-
-        photoItem.appendChild(img);
         if (photo.title || photo.description) {
+            const caption = document.createElement('div');
+            caption.className = 'gallery-caption';
+
+            if (photo.title) {
+                const h4 = document.createElement('h4');
+                h4.textContent = photo.title;
+                caption.appendChild(h4);
+            }
+
+            if (photo.description) {
+                const p = document.createElement('p');
+                p.textContent = photo.description;
+                caption.appendChild(p);
+            }
+
             photoItem.appendChild(caption);
         }
 
@@ -277,6 +256,7 @@ function displayGallery() {
 function displayClubNews() {
     const newsGrid = document.getElementById('club-news-display-grid');
     newsGrid.replaceChildren();
+
     if (clubNewsData.length === 0) {
         const wrap = document.createElement('div');
         wrap.className = 'content-item';
@@ -287,16 +267,21 @@ function displayClubNews() {
         newsGrid.appendChild(wrap);
         return;
     }
+
     clubNewsData.forEach((news) => {
         const newsItem = document.createElement('div');
         newsItem.className = 'content-item';
+
         const h3 = document.createElement('h3');
         h3.textContent = news.title;
+
         const body = document.createElement('p');
         body.textContent = news.content;
+
         const dateLine = document.createElement('p');
         dateLine.className = 'news-date';
         dateLine.textContent = news.date;
+
         newsItem.appendChild(h3);
         newsItem.appendChild(body);
         newsItem.appendChild(dateLine);
@@ -323,12 +308,16 @@ function displayBirthdays() {
     birthdaysData.forEach((birthday) => {
         const item = document.createElement('div');
         item.className = 'carousel-item';
+
         const dateObj = new Date(birthday.date);
         const formattedDate = dateObj.toLocaleDateString('uk-UA', { year: 'numeric', month: 'long', day: 'numeric' });
+
         const h3 = document.createElement('h3');
         h3.textContent = birthday.name;
+
         const p = document.createElement('p');
         p.textContent = formattedDate;
+
         item.appendChild(h3);
         item.appendChild(p);
         carousel.appendChild(item);
@@ -337,6 +326,7 @@ function displayBirthdays() {
     if (currentBirthdayIndex >= birthdaysData.length) {
         currentBirthdayIndex = 0;
     }
+
     updateCarouselPosition();
     startBirthdayAutoRotate();
 }
