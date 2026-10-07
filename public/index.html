@@ -219,13 +219,16 @@ function displayGallery() {
         photoItem.className = 'gallery-item';
 
         const img = document.createElement('img');
-        img.src = photo.imageUrl;
+        const imageUrl = typeof photo.imageUrl === 'string' ? photo.imageUrl : '';
+        img.src = imageUrl;
         img.alt = photo.title || `Фото ${index + 1}`;
         img.loading = 'lazy';
+        img.decoding = 'async';
 
         img.onerror = function () {
             this.onerror = null;
-            this.src = 'img/logo.png';
+            this.src = '';
+            this.style.display = 'none';
         };
 
         photoItem.appendChild(img);
