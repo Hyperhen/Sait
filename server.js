@@ -419,10 +419,11 @@ app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req,
     if (IS_PROD) {
       const base64 = req.file.buffer.toString("base64");
       const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
-      await clubStore.addPhoto(title.trim(), desc, imageUrl);
+      await clubStore.addPhoto(title.trim(), desc, req.file.filename, imageUrl);
     } else {
-      // Локально — звичайне завантаження
-      await clubStore.addPhoto(title.trim(), desc, req.file.filename);
+      // Локально — звичайне завантаження з правильним URL
+      const imageUrl = `/uploads/${req.file.filename}`;
+      await clubStore.addPhoto(title.trim(), desc, req.file.filename, imageUrl);
     }
 
     res.json({ ok: true, filename: req.file.filename || "uploaded" });
