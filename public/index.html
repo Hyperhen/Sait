@@ -199,6 +199,15 @@ async function loadClubData() {
     }
 }
 
+function normalizePhotoUrl(photo) {
+    const raw = (photo && (photo.imageUrl || photo.filename)) || "";
+    if (!raw) return "";
+    if (raw.startsWith("data:image/")) return raw;
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.startsWith("/")) return raw;
+    return `/${raw.replace(/^\.\//, "").replace(/^\.\//, "")}`;
+}
+
 function displayGallery() {
     const galleryGrid = document.getElementById('gallery-grid');
     galleryGrid.replaceChildren();
@@ -219,16 +228,16 @@ function displayGallery() {
         photoItem.className = 'gallery-item';
 
         const img = document.createElement('img');
-        const imageUrl = typeof photo.imageUrl === 'string' ? photo.imageUrl : '';
+        const imageUrl = normalizePhotoUrl(photo);
         img.src = imageUrl;
         img.alt = photo.title || `Фото ${index + 1}`;
         img.loading = 'lazy';
         img.decoding = 'async';
 
         img.onerror = function () {
-            this.onerror = null;
-            this.src = '';
-            this.style.display = 'none';
+            if (this.dataset.fallback === 'true') return;
+            this.dataset.fallback = 'true';
+            this.src = 'img/logo.png';
         };
 
         photoItem.appendChild(img);
