@@ -408,9 +408,9 @@ app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req,
       return res.status(400).json({ error: "Файл не завантажено" });
     }
 
-    const fileName = req.file?.filename;
+    const fileName = req.file?.originalname;
     if (!fileName || String(fileName).trim() === "") {
-      return res.status(400).json({ error: "Ім'я файлу відсутнє", poher: req.file});
+      return res.status(400).json({ error: "Ім'я файлу відсутнє", });
     }
 
     const { title, description } = req.body || {};
