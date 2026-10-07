@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Адмін-панель - Волейбольний клуб Люті</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Sans+3:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .admin-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 2rem 1.25rem;
+        }
+
+        .admin-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .admin-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .admin-section {
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-subtle);
+            box-shadow: var(--shadow-card);
+        }
+
+        .admin-section h2 {
+            font-family: var(--font-display);
+            font-weight: 600;
+            font-size: 1.25rem;
+            margin: 0 0 1.25rem;
+            color: var(--cyan);
+        }
+
+        .admin-login {
+            margin-bottom: 2rem;
+        }
+
+        .admin-content {
+            display: none;
+        }
+
+        .admin-content.authenticated {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .admin-content.authenticated {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .upload-zone {
+            border: 2px dashed var(--accent);
+            border-radius: var(--radius-md);
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: rgba(240, 99, 124, 0.05);
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-strong);
+            background: rgba(240, 99, 124, 0.1);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--cyan);
+            background: rgba(78, 205, 196, 0.1);
+        }
+
+        .upload-zone input {
+            display: none;
+        }
+
+        .preview-container {
+            margin-top: 1.25rem;
+        }
+
+        .preview-image {
+            max-width: 100%;
+            height: auto;
+            max-height: 300px;
+            border-radius: var(--radius-sm);
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.4rem;
+            font-family: var(--font-display);
+            font-weight: 500;
+            font-size: 0.8125rem;
+            color: var(--text-faint);
+            text-transform: uppercase;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem 0.95rem;
+            border-radius: var(--radius-sm);
+            background: rgba(8, 10, 18, 0.75);
+            border: 1px solid var(--border-subtle);
+            color: var(--text);
+            font-family: var(--font-body);
+            font-size: 1rem;
+            box-sizing: border-box;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            margin-bottom: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+            outline: none;
+        }
+
+        .upload-btn,
+        .logout-btn {
+            width: 100%;
+            padding: 0.85rem 1.25rem;
+            font-family: var(--font-display);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            color: white;
+            background: linear-gradient(135deg, var(--accent), #c73e5a);
+            border: none;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(240, 99, 124, 0.35);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        .upload-btn:hover,
+        .logout-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 28px rgba(240, 99, 124, 0.45);
+        }
+
+        .upload-btn:active,
+        .logout-btn:active {
+            transform: translateY(0);
+        }
+
+        .logout-btn {
+            margin-top: 1rem;
+            background: linear-gradient(135deg, rgba(240, 99, 124, 0.7), rgba(199, 62, 90, 0.7));
+        }
+
+        .upload-status {
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius-sm);
+            margin: 0.75rem 0;
+            text-align: left;
+            font-size: 0.875rem;
+            display: none;
+        }
+
+        .upload-status.show {
+            display: block;
+        }
+
+        .upload-status.success {
+            background: rgba(78, 205, 196, 0.2);
+            border: 1px solid rgba(78, 205, 196, 0.5);
+            color: var(--cyan);
+        }
+
+        .upload-status.error {
+            background: rgba(240, 99, 124, 0.2);
+            border: 1px solid rgba(240, 99, 124, 0.5);
+            color: var(--accent-strong);
+        }
+
+        .gallery-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .gallery-item-card {
+            display: flex;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(8, 10, 18, 0.55);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+        }
+
+        .gallery-item-card img {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 4px;
+        }
+
+        .gallery-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .gallery-item-info h4 {
+            margin: 0 0 0.25rem;
+            font-size: 0.875rem;
+            color: var(--text);
+            word-break: break-word;
+        }
+
+        .gallery-item-info p {
+            margin: 0;
+            font-size: 0.75rem;
+            color: var(--text-faint);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        .delete-btn {
+            padding: 0.4rem 0.65rem;
+            font-size: 0.75rem;
+            background: rgba(248, 113, 113, 0.2);
+            color: rgba(248, 113, 113, 0.95);
+            border: 1px solid rgba(248, 113, 113, 0.4);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .delete-btn:hover {
+            background: rgba(248, 113, 113, 0.35);
+        }
+
+        .gallery-empty {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: var(--text-faint);
+            font-style: italic;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border-subtle);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            color: var(--cyan);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: color 0.2s ease;
+        }
+
+        .back-link:hover {
+            color: #7fe8de;
+        }
+    </style>
+</head>
+<body>
+
+<header class="site-header site-header--compact">
+    <div class="site-header__inner">
+        <h1>🔒 Адмін-панель</h1>
+        <p class="site-header__tagline">Управління фотогалереєю та контентом</p>
+    </div>
+</header>
+
+<main class="admin-container">
+    <a href="index.html" class="back-link">← На головну</a>
+
+    <!-- Форма входу -->
+    <div class="admin-login" id="login-section">
+        <div class="admin-section">
+            <h2>Вхід до панелі</h2>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="password">Пароль адміна:</label>
+                    <input type="password" id="password" required placeholder="Введіть пароль">
+                </div>
+                <button type="submit" class="upload-btn">Увійти</button>
+            </form>
+            <div id="login-status" class="upload-status"></div>
+        </div>
+    </div>
+
+    <!-- Адмін-панель -->
+    <div class="admin-content" id="admin-panel">
+        <div class="admin-section">
+            <h2>📸 Завантажити фото</h2>
+            
+            <form id="upload-form">
+                <div class="upload-zone" id="upload-zone">
+                    <div>
+                        <p>🖼️ Перетягніть фото сюди або натисніть для вибору</p>
+                        <p style="font-size: 0.875rem; color: var(--text-faint); margin: 0.5rem 0 0;">JPEG, PNG, WebP, GIF • Макс 10 МБ</p>
+                    </div>
+                    <input type="file" id="file-input" accept="image/*" required>
+                </div>
+
+                <div class="preview-container" id="preview-container" style="display: none;">
+                    <img id="preview-image" class="preview-image" alt="Попередній перегляд">
+                </div>
+
+                <div class="form-group">
+                    <label for="title">Назва фото *</label>
+                    <input type="text" id="title" required placeholder="Введіть назву фото" maxlength="200">
+                </div>
+
+                <div class="form-group">
+                    <label for="description">Опис (необов'язково)</label>
+                    <textarea id="description" placeholder="Додайте опис..." maxlength="1000"></textarea>
+                </div>
+
+                <button type="submit" class="upload-btn" id="submit-btn">Завантажити фото</button>
+            </form>
+
+            <div id="upload-status" class="upload-status"></div>
+        </div>
+
+        <div class="admin-section">
+            <h2>📁 Мої фото</h2>
+            <div class="gallery-list" id="gallery-list">
+                <div class="gallery-empty">Завантажено немає</div>
+            </div>
+            <button type="button" class="logout-btn" id="logout-btn">🚪 Вийти</button>
+        </div>
+    </div>
+</main>
+
+<footer class="site-footer">
+    <p>© 2026 Волейбольний клуб Люті. Всі права захищені.</p>
+</footer>
+
+<script>
+const API_BASE = "";
+
+// Елементи
+const loginSection = document.getElementById("login-section");
+const adminPanel = document.getElementById("admin-panel");
+const loginForm = document.getElementById("login-form");
+const uploadForm = document.getElementById("upload-form");
+const uploadZone = document.getElementById("upload-zone");
+const fileInput = document.getElementById("file-input");
+const previewContainer = document.getElementById("preview-container");
+const previewImage = document.getElementById("preview-image");
+const titleInput = document.getElementById("title");
+const descriptionInput = document.getElementById("description");
+const submitBtn = document.getElementById("submit-btn");
+const uploadStatus = document.getElementById("upload-status");
+const loginStatus = document.getElementById("login-status");
+const galleryList = document.getElementById("gallery-list");
+const logoutBtn = document.getElementById("logout-btn");
+
+// Проверка статуса сессии при загрузке
+async function checkSession() {
+    try {
+        const res = await fetch(`${API_BASE}/api/bo/session`);
+        const data = await res.json();
+        if (data.authenticated) {
+            showAdminPanel();
+            loadGallery();
+        }
+    } catch (error) {
+        console.error("Ошибка проверки сеанса:", error);
+    }
+}
+
+// Вход
+loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const password = document.getElementById("password").value;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/bo/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ password }),
+        });
+
+        const data = await res.json();
+
+        if (res.ok && data.ok) {
+            loginStatus.className = "upload-status show success";
+            loginStatus.textContent = "✅ Успішний вхід! Завантажуємо панель...";
+            setTimeout(() => {
+                showAdminPanel();
+                loadGallery();
+            }, 500);
+        } else {
+            loginStatus.className = "upload-status show error";
+            loginStatus.textContent = "❌ " + (data.error || "Невірний пароль");
+        }
+    } catch (error) {
+        loginStatus.className = "upload-status show error";
+        loginStatus.textContent = "❌ Помилка з'єднання";
+        console.error("Login error:", error);
+    }
+});
+
+function showAdminPanel() {
+    loginSection.style.display = "none";
+    adminPanel.classList.add("authenticated");
+}
+
+// Drag & Drop
+uploadZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadZone.classList.add("dragover");
+});
+
+uploadZone.addEventListener("dragleave", () => {
+    uploadZone.classList.remove("dragover");
+});
+
+uploadZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove("dragover");
+    if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        handleFileSelect();
+    }
+});
+
+uploadZone.addEventListener("click", () => fileInput.click());
+
+fileInput.addEventListener("change", handleFileSelect);
+
+function handleFileSelect() {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        previewImage.src = e.target.result;
+        previewContainer.style.display = "block";
+    };
+    reader.readAsDataURL(file);
+}
+
+// Завантаження фото
+uploadForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const file = fileInput.files[0];
+    if (!file) {
+        uploadStatus.className = "upload-status show error";
+        uploadStatus.textContent = "❌ Виберіть файл";
+        return;
+    }
+
+    const title = titleInput.value.trim();
+    if (!title) {
+        uploadStatus.className = "upload-status show error";
+        uploadStatus.textContent = "❌ Введіть назву фото";
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("image", file);
+    formData.append("title", title);
+    formData.append("description", descriptionInput.value.trim());
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="loading-spinner"></span>Завантажуємо...';
+
+    try {
+        const res = await fetch(`${API_BASE}/api/bo/photos`, {
+            method: "POST",
+            body: formData,
+        });
+
+        if (res.ok) {
+            uploadStatus.className = "upload-status show success";
+            uploadStatus.textContent = "✅ Фото успішно завантажено!";
+            uploadForm.reset();
+            previewContainer.style.display = "none";
+            loadGallery();
+        } else {
+            const error = await res.json();
+            uploadStatus.className = "upload-status show error";
+            uploadStatus.textContent = "❌ " + (error.error || "Помилка завантаження");
+        }
+    } catch (error) {
+        uploadStatus.className = "upload-status show error";
+        uploadStatus.textContent = "❌ Помилка з'єднання";
+        console.error("Upload error:", error);
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "Завантажити фото";
+    }
+});
+
+// Завантажить галерею
+async function loadGallery() {
+    try {
+        const res = await fetch(`${API_BASE}/api/bo/photos`);
+        const data = await res.json();
+
+        galleryList.innerHTML = "";
+
+        if (!data.photos || data.photos.length === 0) {
+            galleryList.innerHTML = '<div class="gallery-empty">Фото відсутні</div>';
+            return;
+        }
+
+        data.photos.forEach((photo) => {
+            const card = document.createElement("div");
+            card.className = "gallery-item-card";
+
+            const img = document.createElement("img");
+            if (photo.imageUrl.startsWith("data:")) {
+                img.src = photo.imageUrl;
+            } else {
+                img.src = `/uploads/${photo.imageUrl}`;
+            }
+            img.alt = photo.title;
+
+            const info = document.createElement("div");
+            info.className = "gallery-item-info";
+
+            const h4 = document.createElement("h4");
+            h4.textContent = photo.title;
+
+            const p = document.createElement("p");
+            p.textContent = photo.description || "Немає опису";
+
+            info.appendChild(h4);
+            info.appendChild(p);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className = "delete-btn";
+            deleteBtn.textContent = "🗑️";
+            deleteBtn.title = "Видалити";
+            deleteBtn.addEventListener("click", () => deletePhoto(photo.id));
+
+            card.appendChild(img);
+            card.appendChild(info);
+            card.appendChild(deleteBtn);
+            galleryList.appendChild(card);
+        });
+    } catch (error) {
+        galleryList.innerHTML = '<div class="gallery-empty">Помилка завантаження</div>';
+        console.error("Gallery load error:", error);
+    }
+}
+
+// Видалення фото
+async function deletePhoto(id) {
+    if (!confirm("Ви впевнені? Це неможливо скасувати.")) return;
+
+    try {
+        const res = await fetch(`${API_BASE}/api/bo/photos/${encodeURIComponent(id)}`, {
+            method: "DELETE",
+        });
+
+        if (res.ok) {
+            uploadStatus.className = "upload-status show success";
+            uploadStatus.textContent = "✅ Фото видалено";
+            loadGallery();
+        } else {
+            uploadStatus.className = "upload-status show error";
+            uploadStatus.textContent = "❌ Помилка видалення";
+        }
+    } catch (error) {
+        uploadStatus.className = "upload-status show error";
+        uploadStatus.textContent = "❌ Помилка з'єднання";
+        console.error("Delete error:", error);
+    }
+}
+
+// Вихід
+logoutBtn.addEventListener("click", async () => {
+    try {
+        await fetch(`${API_BASE}/api/bo/logout`, { method: "POST" });
+        location.reload();
+    } catch (error) {
+        console.error("Logout error:", error);
+    }
+});
+
+checkSession();
+</script>
+
+</body>
+</html>
