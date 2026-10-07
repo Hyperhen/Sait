@@ -408,6 +408,11 @@ app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req,
       return res.status(400).json({ error: "Файл не завантажено" });
     }
 
+    const fileName = req.file?.filename;
+    if (!fileName || String(fileName).trim() === "") {
+      return res.status(400).json({ error: "Ім'я файлу відсутнє" });
+    }
+
     const { title, description } = req.body || {};
     if (typeof title !== "string" || title.trim().length < 1 || title.length > 200) {
       return res.status(400).json({ error: "Назва: 1–200 символів" });
@@ -419,14 +424,13 @@ app.post("/api/bo/photos", requireBoSession, upload.single("image"), async (req,
     if (IS_PROD) {
       const base64 = req.file.buffer.toString("base64");
       const imageUrl = `data:${req.file.mimetype};base64,${base64}`;
-      await clubStore.addPhoto(title.trim(), desc, req.file.filename, imageUrl);
+      await clubStore.addPhoto(title.trim(), desc, fileName, imageUrl);
     } else {
-      // Локально — звичайне завантаження з правильним URL
-      const imageUrl = `/uploads/${req.file.filename}`;
-      await clubStore.addPhoto(title.trim(), desc, req.file.filename, imageUrl);
+      // Локально — звичайне завантаження
+      await clubStore.addPhoto(title.trim(), desc, fileName);
     }
 
-    res.json({ ok: true, filename: req.file.filename || "uploaded" });
+    res.json({ ok: true, filename: fileName });
   } catch (e) {
     next(e);
   }
